@@ -130,7 +130,7 @@ void search::setImage(cv::Mat img)
     // Create an OpenCL buffer for the image
     clImage = clCreateBuffer(context,
                              CL_MEM_READ_ONLY,
-                             imageSize * 3 * sizeof(char),
+                             imageSize * sizeof(char),
                              NULL,
                              &err);
     cout << "clImage Buffer error: " << err << "\n";
@@ -138,7 +138,7 @@ void search::setImage(cv::Mat img)
     // Create an OpenCL buffer for the result
     clResult = clCreateBuffer(context,
                               CL_MEM_WRITE_ONLY,
-                              imageSize * 4 * sizeof(char),
+                              imageSize * sizeof(char),
                               NULL,
                               &err);
     cout << "clResult Buffer error: " << err << "\n";
@@ -156,7 +156,7 @@ void search::setImage(cv::Mat img)
                                clImage,
                                CL_TRUE,
                                0,
-                               imageSize * 3 * sizeof(char),
+                               imageSize * sizeof(char),
                                (void*) &image.data[0],
                                0,
                                NULL,
@@ -207,21 +207,21 @@ void search::runProgram()
                                  NULL);
     cout << "clEnqueueNDRangeKernel error: " << err << "\n";
 
-    clImage = clResult;
+//    clImage = clResult;  // allows the image to be processed multiiple times
 }
 
 // Returns the data read from the output buffer
 void* search::readOutput() {
     std::cout << "readOutput" << std::endl;
 
-    unsigned char newData [imageSize * 4 * sizeof(char)];
+    unsigned char newData [imageSize * 2 * sizeof(char)];  // **** For some reason making this double the needed size get rid of artifacts at the bottom of displayed image
 
     // Transfer image back to host
     err = clEnqueueReadBuffer(queue,
                               clResult,
                               CL_TRUE,
                               0,
-                              imageSize * 4 * sizeof(char),
+                              imageSize * sizeof(char),
                               (void*) newData,
                               0,
                               NULL,
