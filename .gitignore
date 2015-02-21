@@ -1,3 +1,8 @@
+Makefile
+README.md~
+SSL_Tracking
+SSL_Tracking.pro.user
+
 # Compiled Object files
 *.slo
 *.lo
