@@ -48,32 +48,38 @@ int main(int argc, char *argv[])
     search s1;
     s1.buildProgram(findSSLClPath, 0);
 
-    for (;;)
+    cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
+
+    while (cap.isOpened())
     {
         // Get new frame
         cv::Mat img;
         cap >> img;
 
-        // // converts image to RGB which qt understands from openCVs default BGR
-        // cvtColor(img, img, CV_BGR2RGB);
+        int w = img.cols;
+        int h = img.rows;
+//        std::cout << "image width: " << w << " image height: " << h << std::endl;
+
+//         // converts image to RGB which qt understands from openCVs default BGR
+//         cvtColor(img, img, CV_BGR2RGB);
 
         // convert to grayscale
         cv::Mat imgGray;
         cvtColor(img, imgGray, CV_BGR2GRAY);
 
-//        // convert to binary
-//        double thresh = 125;
-//        cv::Mat imgBin;
-//        cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
+        // convert to binary
+        double thresh = 150;
+        cv::Mat imgBin;
+        cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
 
-//        s1.setImage(imgBin);
+        s1.setImage(imgBin);
 
-//        s1.runProgram();
-//        // newDataPointer is used to display image in gui
-//        unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
-//        unsigned int* newMatchesPointer = (unsigned int*) s1.readMatchesOutput();
-//        // newImage is passed into the next filter
-//        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer);
+        s1.runProgram();
+        // newDataPointer is used to display image in gui
+        unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
+        unsigned int* newMatchesPointer = (unsigned int*) s1.readMatchesOutput();
+        // newImage is passed into the next filter
+        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer);
 
 //        // Print matches
 //        for (int i = 0; i < MATCHES_BUFFER_SIZE; i+=2)
@@ -83,13 +89,13 @@ int main(int argc, char *argv[])
 
 //        // Display images
 //        cv::namedWindow("New Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
-//        cv::imshow("New Image", newImage);           // Show our image inside it.
+        cv::imshow("New Image", newImage);           // Show our image inside it.
 
 //        cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
-//        cv::imshow("Original Image", img);           // Show our image inside it.
+        cv::imshow("Original Image", imgBin);           // Show our image inside it.
 
         // keep window open until any key is pressed
-//        cv::waitKey(0);
-//        if(cv::waitKey(30) >= 0) break;
+//        cv::waitKey(1);
+        if(cv::waitKey(1) >= 0) break;
     }
 }
