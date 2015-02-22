@@ -60,9 +60,6 @@ int main(int argc, char *argv[])
         int h = img.rows;
 //        std::cout << "image width: " << w << " image height: " << h << std::endl;
 
-//         // converts image to RGB which qt understands from openCVs default BGR
-//         cvtColor(img, img, CV_BGR2RGB);
-
         // convert to grayscale
         cv::Mat imgGray;
         cvtColor(img, imgGray, CV_BGR2GRAY);
@@ -88,10 +85,8 @@ int main(int argc, char *argv[])
 //        }
 
 //        // Display images
-//        cv::namedWindow("New Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
         cv::imshow("New Image", newImage);           // Show our image inside it.
 
-//        cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
         cv::imshow("Original Image", imgBin);           // Show our image inside it.
 
         // keep window open until any key is pressed

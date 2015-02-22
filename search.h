@@ -11,6 +11,7 @@
 
 #define MAX_LOG_SIZE (0x100000)
 #define MATCHES_BUFFER_SIZE 100 // cl_int
+#define VERBOSE false
 
 class search
 {
