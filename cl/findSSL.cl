@@ -3,16 +3,18 @@
 #define BLOCK_SIZE 16  // size of local workspace
 __kernel void filter_kernel(
         __global uchar * img, //bgr
-        __global uchar * filteredImage, //bgr
+        __global uchar * newImg, //bgr
         int w,
         int h,
         int maskSize,
-	__global uchar * debugBuffer
+        __global int * matches
     ) {
     int xpos = get_global_id(0);
     int ypos = get_global_id(1);
 
     int imgPos = (ypos * w + xpos);
+
+//    __global int matchesIndex = 0;
 
     int sumMatch = 0;
     int sumMismatch = 0;
@@ -29,15 +31,18 @@ __kernel void filter_kernel(
         }
     }
 
-    double m = (double)(sumMismatch - sumMatch) / win; // matching function value
+    double m = (double) (sumMismatch - sumMatch) / win; // matching function value
 
     if (m > 0.6)
     {
-        filteredImage[imgPos] = m * 255;
+        newImg[imgPos] = m * 255;
+//        matchesIndex++;
+//        matches[matchesIndex] = xpos;
+//        matches[matchesIndex + 1] = ypos;
     }
     else
     {
-        filteredImage[imgPos] = 0;
+        newImg[imgPos] = 0;
     }
 
 

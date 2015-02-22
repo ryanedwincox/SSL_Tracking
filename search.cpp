@@ -143,13 +143,13 @@ void search::setImage(cv::Mat img)
                               &err);
     cout << "clResult Buffer error: " << err << "\n";
 
-    // Create an extra buffer for debugging
-    clDebug = clCreateBuffer(context,
+    // Create matches buffer
+    clMatch = clCreateBuffer(context,
                              CL_MEM_WRITE_ONLY,
-                             DEBUG_BUFFER_SIZE,
+                             MATCHES_BUFFER_SIZE * sizeof(int),
                              NULL,
                              &err);
-    cout << "clDebug Buffer error: " << err << "\n";
+    cout << "clMatch Buffer error: " << err << "\n";
 
     // load image to device
     err = clEnqueueWriteBuffer(queue,
@@ -188,7 +188,7 @@ void search::runProgram()
     cout << "kernel arg 3 error: " << err << "\n";
     err = clSetKernelArg(kernel, 4, sizeof(cl_int), &maskSize);
     cout << "kernel arg 4 error: " << err << "\n";
-    err = clSetKernelArg(kernel, 5, sizeof(cl_mem), &clDebug);
+    err = clSetKernelArg(kernel, 5, sizeof(cl_mem), &clMatch);
     cout << "kernel arg 5 error: " << err << "\n";
 
     // Set local and global workgroup sizes
@@ -231,23 +231,22 @@ void* search::readOutput() {
     return newData;
 }
 
-// Transfer debug buffer back to host
-void* search::readDebugOutput()
+// Transfer Match buffer back to host
+void* search::readMatchesOutput()
 {
-    //float debug [DEBUG_BUFFER_SIZE];
-    unsigned char debug [DEBUG_BUFFER_SIZE];
+    unsigned int matches [MATCHES_BUFFER_SIZE * sizeof(int)];
     err = clEnqueueReadBuffer(queue,
-                              clDebug,
+                              clMatch,
                               CL_TRUE,
                               0,
-                              DEBUG_BUFFER_SIZE,
-                              debug,
+                              MATCHES_BUFFER_SIZE * sizeof(int),
+                              matches,
                               0,
                               NULL,
                               NULL);
-    cout << "clDebug read buffer error: " << err << "\n";
+    cout << "clMatch read buffer error: " << err << "\n";
 
-    return debug;
+    return matches;
 }
 
 cv::Mat search::getInputImage()

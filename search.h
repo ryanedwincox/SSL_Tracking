@@ -10,7 +10,7 @@
 #include <fstream>
 
 #define MAX_LOG_SIZE (0x100000)
-#define DEBUG_BUFFER_SIZE 50 // cl_int
+#define MATCHES_BUFFER_SIZE 100 // cl_int
 
 class search
 {
@@ -21,7 +21,7 @@ public:
     void buildProgram(const char* clPath, cl_int maskSize);
     void runProgram();
     void* readOutput();
-    void* readDebugOutput();
+    void* readMatchesOutput();
     cv::Mat getInputImage();
 private:
     cv::Mat image;
@@ -42,7 +42,7 @@ private:
     cl_kernel kernel;
     cl_mem clImage;
     cl_mem clResult;
-    cl_mem clDebug;
+    cl_mem clMatch;
     cl_command_queue queue;
 };
 
