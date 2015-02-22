@@ -40,12 +40,17 @@ int main(int argc, char *argv[])
     cv::Mat imgGray;
     cvtColor(img, imgGray, CV_BGR2GRAY);
 
+    // convert to binary
+    double thresh = 125;
+    cv::Mat imgBin;
+    cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
+
     // define kernel files
-    const char * copyImageClPath = "/home/pierre/Documents/SSL_Tracking/cl/copy_image.cl";
+    const char * copyImageClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
     search s1;
     s1.buildProgram(copyImageClPath, 0);
-    s1.setImage(imgGray);
+    s1.setImage(imgBin);
 
     s1.runProgram();
     // newDataPointer is used to display image in gui
@@ -58,7 +63,7 @@ int main(int argc, char *argv[])
     cv::imshow("New Image", newImage);           // Show our image inside it.
 
     cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
-    cv::imshow("Original Image", s1.getInputImage());           // Show our image inside it.
+    cv::imshow("Original Image", img);           // Show our image inside it.
 
     // keep window open until any key is pressed
     cv::waitKey(0);
