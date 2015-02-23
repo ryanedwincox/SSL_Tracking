@@ -77,10 +77,11 @@ search::search()
 }
 
 // Builds OpenCl program
-void search::buildProgram(const char* clPath, cl_int maskSize)
+void search::buildProgram(const char* clPath, cl_int win, cl_double p)
 {
     this->clPath = clPath;
-    this->maskSize = maskSize;
+    this->win = win;
+    this->p = p;
 
     // get size of kernel source
     const char* kernelSource = clPath;
@@ -233,14 +234,20 @@ void search::runProgram()
     {
         cout << "kernel arg 3 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 4, sizeof(cl_int), &maskSize);
+    err = clSetKernelArg(kernel, 4, sizeof(cl_int), &win);
     if (VERBOSE)
     {
-        cout << "kernel arg 4 error: " << err << "\n";}
-    err = clSetKernelArg(kernel, 5, sizeof(cl_mem), &clMatch);
+        cout << "kernel arg 4 error: " << err << "\n";
+    }
+    err = clSetKernelArg(kernel, 5, sizeof(cl_double), &p);
     if (VERBOSE)
     {
         cout << "kernel arg 5 error: " << err << "\n";
+    }
+    err = clSetKernelArg(kernel, 6, sizeof(cl_mem), &clMatch);
+    if (VERBOSE)
+    {
+        cout << "kernel arg 6 error: " << err << "\n";
     }
 
     // Set local and global workgroup sizes

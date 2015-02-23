@@ -46,7 +46,9 @@ int main(int argc, char *argv[])
     const char * findSSLClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
     search s1;
-    s1.buildProgram(findSSLClPath, 0);
+    cl_int win = 50;
+    cl_double p = 0.5;
+    s1.buildProgram(findSSLClPath, win, p);
 
     cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
 

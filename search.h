@@ -19,7 +19,7 @@ public:
     search();
     ~search();
     void setImage(cv::Mat img);
-    void buildProgram(const char* clPath, cl_int maskSize);
+    void buildProgram(const char* clPath, cl_int win, cl_double p);
     void runProgram();
     void* readOutput();
     void* readMatchesOutput();
@@ -30,7 +30,8 @@ private:
     size_t imageHeight;
     size_t imageSize;
     const char* clPath;
-    cl_int maskSize;
+    cl_int win;
+    cl_double p;
 
     FILE* programHandle;
     char *programBuffer;

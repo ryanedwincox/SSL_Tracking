@@ -6,7 +6,8 @@ __kernel void filter_kernel(
         __global uchar * newImg, //bgr
         int w,
         int h,
-        int maskSize,
+        int win,
+        double p,
         __global int * matches
     ) {
     int xpos = get_global_id(0);
@@ -18,20 +19,27 @@ __kernel void filter_kernel(
 
     int sumMatch = 0;
     int sumMismatch = 0;
-    int win = 50; // TODO make this a param
-    double p = 0.5; // TODO make this a param
+//    int win = 50; // TODO make this a param
+//    double p = 0.5; // TODO make this a param
     for (int i = 0; i < win; i++)
     {
-        if (xpos+i < w)
+        if (xpos+i <= w)
         {
             int ip = i*p;
             sumMatch = sumMatch + abs(img[imgPos+i] - img[(int)imgPos+ip]) / 255;
             int irootp = i*0.7071;
             sumMismatch = sumMismatch + abs(img[imgPos+i] - img[imgPos+irootp]) / 255;
         }
+        if (xpos-i >= 0)
+        {
+            int ip = i*p;
+            sumMatch = sumMatch + abs(img[imgPos-i] - img[(int)imgPos-ip]) / 255;
+            int irootp = i*0.7071;
+            sumMismatch = sumMismatch + abs(img[imgPos-i] - img[imgPos-irootp]) / 255;
+        }
     }
 
-    double m = (double) (sumMismatch - sumMatch) / win; // matching function value
+    double m = (double) (sumMismatch - sumMatch) / win / 2; // matching function value
 
     if (m > 0.6)
     {
