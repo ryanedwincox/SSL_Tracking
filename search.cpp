@@ -251,7 +251,7 @@ void search::runProgram()
     }
 
     // Set local and global workgroup sizes
-    size_t localws[2] = {16,16};
+    size_t localws[2] = {256,1};
     size_t globalws[2] = {imageWidth, imageHeight};
 
     // Run filter kernel
@@ -268,6 +268,7 @@ void search::runProgram()
     {
         cout << "clEnqueueNDRangeKernel error: " << err << "\n";
     }
+//    CL_SUCCESS
 
 //    clImage = clResult;  // allows the image to be processed multiiple times
 }

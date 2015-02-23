@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     const char * findSSLClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
     search s1;
-    cl_int win = 50;
+    cl_int win = 40;
     cl_double p = 0.5;
     s1.buildProgram(findSSLClPath, win, p);
 
@@ -60,7 +60,10 @@ int main(int argc, char *argv[])
 
         int w = img.cols;
         int h = img.rows;
-//        std::cout << "image width: " << w << " image height: " << h << std::endl;
+        if (VERBOSE)
+        {
+            std::cout << "image width: " << w << " image height: " << h << std::endl;
+        }
 
         // convert to grayscale
         cv::Mat imgGray;
@@ -94,5 +97,6 @@ int main(int argc, char *argv[])
         // keep window open until any key is pressed
 //        cv::waitKey(1);
         if(cv::waitKey(1) >= 0) break;
+//        break;
     }
 }
