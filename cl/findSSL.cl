@@ -17,36 +17,41 @@ __kernel void filter_kernel(
 
 //    __global int matchesIndex = 0;
 
-    int sumMatch = 0;
-    int sumMismatch = 0;
-//    int win = 50; // TODO make this a param
-//    double p = 0.5; // TODO make this a param
+    int sumMatch1 = 0;
+    int sumMismatch1 = 0;
+    int sumMatch2 = 0;
+    int sumMismatch2 = 0;
     for (int i = 0; i < win; i++)
     {
         if (xpos+i <= w)
         {
             int ip = i*p;
-            sumMatch = sumMatch + abs(img[imgPos+i] - img[(int)imgPos+ip]) / 255;
+            sumMatch1 = sumMatch1 + abs(img[imgPos+i] - img[(int)imgPos+ip]) / 255;
             int irootp = i*0.7071;
-            sumMismatch = sumMismatch + abs(img[imgPos+i] - img[imgPos+irootp]) / 255;
+            sumMismatch1 = sumMismatch1 + abs(img[imgPos+i] - img[imgPos+irootp]) / 255;
         }
         if (xpos-i >= 0)
         {
             int ip = i*p;
-            sumMatch = sumMatch + abs(img[imgPos-i] - img[(int)imgPos-ip]) / 255;
+            sumMatch2 = sumMatch2 + abs(img[imgPos-i] - img[(int)imgPos-ip]) / 255;
             int irootp = i*0.7071;
-            sumMismatch = sumMismatch + abs(img[imgPos-i] - img[imgPos-irootp]) / 255;
+            sumMismatch2 = sumMismatch2 + abs(img[imgPos-i] - img[imgPos-irootp]) / 255;
         }
     }
 
-    double m = (double) (sumMismatch - sumMatch) / win / 2; // matching function value
+    double m1 = (double) (sumMismatch1 - sumMatch1) / win; // matching function value
+    double m2 = (double) (sumMismatch2 - sumMatch2) / win; // matching function value
 
-    if (m > 0.6)
+    if (m1 > 0.6)
     {
-        newImg[imgPos] = m * 255;
+        newImg[imgPos] = m1 * 255;
 //        matchesIndex++;
 //        matches[matchesIndex] = xpos;
 //        matches[matchesIndex + 1] = ypos;
+    }
+    else if (m2 > 0.6)
+    {
+        newImg[imgPos] = m2 * 255;
     }
     else
     {
