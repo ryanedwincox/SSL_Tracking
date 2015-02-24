@@ -120,9 +120,9 @@ void search::buildProgram(const char* clPath, cl_int win, cl_double p)
                           MAX_LOG_SIZE,
                           &buildLog,
                           NULL);
-    printf("**BUILD LOG**\n%s",buildLog);
     if (VERBOSE)
     {
+        printf("**BUILD LOG**\n%s",buildLog);
         cout << "clGetProgramBuildInfo error: " << err << "\n";
     }
 
@@ -252,7 +252,7 @@ void search::runProgram()
 
     // Set local and global workgroup sizes
     size_t localws[2] = {256,1};
-    size_t globalws[2] = {imageWidth, imageHeight};
+    size_t globalws[2] = {256, imageHeight};
 
     // Run filter kernel
     err = clEnqueueNDRangeKernel(queue,

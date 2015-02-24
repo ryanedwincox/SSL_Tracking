@@ -20,75 +20,69 @@ __kernel void filter_kernel(
     int xpos = i * LOCAL_SIZE + iDx;  // == get_global_id(0)
     int ypos = j + iDy;  // == get_global_id(1)
 
-    int imgPos = (ypos * w + xpos);
-
     // storing image data locally
     // TODO pass in this memory as a paramter to allow for variable sizing
     __local uchar imgRow [640];  // cannot be variable values
 
-//    // Copy a row into local memory
-//    int numEvents = 1;
-//    event_t e = (event_t) 0;
-//    size_t ww = 640;  // *************************
-//    e = async_work_group_copy ((__local uchar*)&imgRow, (const __global uchar *)&(img[j]), ww, e);
-
-//    // Make sure all threads have finished loading all pixels
-//    wait_group_events (numEvents, &e);
-
-//    if (iDx < 200)
-//    {
-    imgRow[iDx] = img[imgPos];
-//    }
+    // Copy a row into local memory
+    size_t ww = 640;  // *************************
+    event_t e = async_work_group_copy (imgRow, &img[j*w], ww, (event_t)0);
 
     // Make sure all threads have finished loading all pixels
-    barrier(CLK_LOCAL_MEM_FENCE);
+    wait_group_events (1, &e);
 
-    int sumMatch1 = 0;
-    int sumMismatch1 = 0;
-    int sumMatch2 = 0;
-    int sumMismatch2 = 0;
-    for (int i = 0; i < win; i++)
+
+
+    for (int core = iDx; core < w; core+=LOCAL_SIZE)
     {
-        if (xpos+i <= w)
+
+        int globalPos = (ypos * w + core);
+
+        int sumMatch1 = 0;
+        int sumMismatch1 = 0;
+        int sumMatch2 = 0;
+        int sumMismatch2 = 0;
+        for (int i = 10; i < win; i++)
         {
-            int ip = i*p;
-            sumMatch1 = sumMatch1 + abs(imgRow[iDx+i] - imgRow[iDx+ip]) / 255;
-            int irootp = i*sqrt(p);
-            sumMismatch1 = sumMismatch1 + abs(imgRow[iDx+i] - imgRow[iDx+irootp]) / 255;
+            if (xpos+i <= w)
+            {
+                int ip = i*p;
+                sumMatch1 = sumMatch1 + abs(imgRow[core+i] - imgRow[core+ip]) / 255;
+                int irootp = i*sqrt(p);
+                sumMismatch1 = sumMismatch1 + abs(imgRow[core+i] - imgRow[core+irootp]) / 255;
+            }
+            if (xpos-i >= 0)
+            {
+                int ip = i*p;
+                sumMatch2 = sumMatch2 + abs(imgRow[core-i] - imgRow[core-ip]) / 255;
+                int irootp = i*sqrt(p);
+                sumMismatch2 = sumMismatch2 + abs(imgRow[core-i] - imgRow[core-irootp]) / 255;
+            }
         }
-        if (xpos-i >= 0)
+
+        double m1 = (double) (sumMismatch1 - sumMatch1) / win; // matching function value
+        double m2 = (double) (sumMismatch2 - sumMatch2) / win; // matching function value
+
+        if (m1 > 0.5)
         {
-            int ip = i*p;
-            sumMatch2 = sumMatch2 + abs(imgRow[iDx-i] - imgRow[iDx-ip]) / 255;
-            int irootp = i*sqrt(p);
-            sumMismatch2 = sumMismatch2 + abs(imgRow[iDx-i] - imgRow[iDx-irootp]) / 255;
+            newImg[globalPos] = m1 * 255;
+    //        matchesIndex++;
+    //        matches[matchesIndex] = xpos;
+    //        matches[matchesIndex + 1] = ypos;
         }
+        else if (m2 > 0.5)
+        {
+            newImg[globalPos] = m2 * 255;
+        }
+        else
+        {
+            newImg[globalPos] = 0;
+        }
+
+
+//         // copy image
+//        newImg[globalPos] = imgRow[core];
     }
-
-    double m1 = (double) (sumMismatch1 - sumMatch1) / win; // matching function value
-    double m2 = (double) (sumMismatch2 - sumMatch2) / win; // matching function value
-
-
-//    newImg[imgPos] = imgRow[iDx];
-
-
-    if (m1 > 0.6)
-    {
-        newImg[imgPos] = m1 * 255;
-//        matchesIndex++;
-//        matches[matchesIndex] = xpos;
-//        matches[matchesIndex + 1] = ypos;
-    }
-    else if (m2 > 0.6)
-    {
-        newImg[imgPos] = m2 * 255;
-    }
-    else
-    {
-        newImg[imgPos] = 0;
-    }
-
-
 }
 
 

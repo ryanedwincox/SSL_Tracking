@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
         cvtColor(img, imgGray, CV_BGR2GRAY);
 
         // convert to binary
-        double thresh = 150;
+        double thresh = 135;
         cv::Mat imgBin;
         cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
 
