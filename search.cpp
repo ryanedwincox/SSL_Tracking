@@ -224,31 +224,37 @@ void search::runProgram()
     {
         cout << "kernel arg 1 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 2, sizeof(cl_int), &imageWidth);
+    err = clSetKernelArg(kernel, 2, (size_t)imageWidth*sizeof(uchar), NULL);
     if (VERBOSE)
     {
         cout << "kernel arg 2 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 3, sizeof(cl_int), &imageHeight);
+    err = clSetKernelArg(kernel, 3, sizeof(cl_int), &imageWidth);
     if (VERBOSE)
     {
         cout << "kernel arg 3 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 4, sizeof(cl_int), &win);
+    err = clSetKernelArg(kernel, 4, sizeof(cl_int), &imageHeight);
     if (VERBOSE)
     {
         cout << "kernel arg 4 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 5, sizeof(cl_double), &p);
+    err = clSetKernelArg(kernel, 5, sizeof(cl_int), &win);
     if (VERBOSE)
     {
         cout << "kernel arg 5 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 6, sizeof(cl_mem), &clMatch);
+    err = clSetKernelArg(kernel, 6, sizeof(cl_double), &p);
     if (VERBOSE)
     {
         cout << "kernel arg 6 error: " << err << "\n";
     }
+    err = clSetKernelArg(kernel, 7, sizeof(cl_mem), &clMatch);
+    if (VERBOSE)
+    {
+        cout << "kernel arg 7 error: " << err << "\n";
+    }
+//    CL_SUCCESS
 
     // Set local and global workgroup sizes
     size_t localws[2] = {256,1};

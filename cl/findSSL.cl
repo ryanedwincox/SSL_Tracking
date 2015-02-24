@@ -4,6 +4,7 @@
 __kernel void filter_kernel(
         const __global uchar * img, //bgr
         __global uchar * newImg, //bgr
+        __local uchar * imgRow,
         int w,
         int h,
         int win,
@@ -20,19 +21,13 @@ __kernel void filter_kernel(
     int xpos = i * LOCAL_SIZE + iDx;  // == get_global_id(0)
     int ypos = j + iDy;  // == get_global_id(1)
 
-    // storing image data locally
-    // TODO pass in this memory as a paramter to allow for variable sizing
-    __local uchar imgRow [640];  // cannot be variable values
-
     // Copy a row into local memory
-    size_t ww = 640;  // *************************
-    event_t e = async_work_group_copy (imgRow, &img[j*w], ww, (event_t)0);
+    event_t e = async_work_group_copy (imgRow, &img[j*w], (size_t) w, (event_t) 0);
 
     // Make sure all threads have finished loading all pixels
     wait_group_events (1, &e);
 
-
-
+    // This loop spreads the work for the whole row onto one local workspace
     for (int core = iDx; core < w; core+=LOCAL_SIZE)
     {
 
