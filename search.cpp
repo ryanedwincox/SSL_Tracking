@@ -179,6 +179,17 @@ void search::setImage(cv::Mat img)
     }
 
     // Create matches buffer
+    clMatchIndex = clCreateBuffer(context,
+                             CL_MEM_WRITE_ONLY,
+                             sizeof(cl_int),
+                             NULL,
+                             &err);
+    if (VERBOSE)
+    {
+        cout << "clMatchIndex Buffer error: " << err << "\n";
+    }
+
+    // Create matches buffer
     clMatch = clCreateBuffer(context,
                              CL_MEM_WRITE_ONLY,
                              MATCHES_BUFFER_SIZE * sizeof(int),
@@ -201,7 +212,23 @@ void search::setImage(cv::Mat img)
                                NULL);
     if (VERBOSE)
     {
-        cout << "enqueueWriteImage error: " << err << "\n";
+        cout << "enqueueWriteBuffer image error: " << err << "\n";
+    }
+
+    // set matchIndex to 0
+    matchesIndex = 0;
+    err = clEnqueueWriteBuffer(queue,
+                               clMatchIndex,
+                               CL_TRUE,
+                               0,
+                               sizeof(cl_int),
+                               (void*) &matchesIndex,
+                               0,
+                               NULL,
+                               NULL);
+    if (VERBOSE)
+    {
+        cout << "enqueueWriteBuffer matchIndex error: " << err << "\n";
     }
 }
 
@@ -213,46 +240,52 @@ void search::runProgram()
         std::cout << "runProgram" << std::endl;
     }
 
+    unsigned int argnum = 0;
     // set kernel arguments
-    err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&clImage);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_mem), (void *)&clImage);
     if (VERBOSE)
     {
         cout << "kernel arg 0 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&clResult);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_mem), (void *)&clResult);
     if (VERBOSE)
     {
         cout << "kernel arg 1 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 2, (size_t)imageWidth*sizeof(uchar), NULL);
+    err = clSetKernelArg(kernel, argnum++, (size_t)imageWidth*sizeof(uchar), NULL);
     if (VERBOSE)
     {
         cout << "kernel arg 2 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 3, sizeof(cl_int), &imageWidth);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_int), &imageWidth);
     if (VERBOSE)
     {
         cout << "kernel arg 3 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 4, sizeof(cl_int), &imageHeight);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_int), &imageHeight);
     if (VERBOSE)
     {
         cout << "kernel arg 4 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 5, sizeof(cl_int), &win);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_int), &win);
     if (VERBOSE)
     {
         cout << "kernel arg 5 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 6, sizeof(cl_double), &p);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_double), &p);
     if (VERBOSE)
     {
         cout << "kernel arg 6 error: " << err << "\n";
     }
-    err = clSetKernelArg(kernel, 7, sizeof(cl_mem), &clMatch);
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_mem), &clMatchIndex);
     if (VERBOSE)
     {
         cout << "kernel arg 7 error: " << err << "\n";
+    }
+    err = clSetKernelArg(kernel, argnum++, sizeof(cl_mem), &clMatch);
+    if (VERBOSE)
+    {
+        cout << "kernel arg 8 error: " << err << "\n";
     }
 //    CL_SUCCESS
 
@@ -307,14 +340,14 @@ void* search::readOutput() {
 }
 
 // Transfer Match buffer back to host
-void* search::readMatchesOutput()
+void* search::readMatchesOutput(int numMatches)
 {
-    unsigned int matches [MATCHES_BUFFER_SIZE * sizeof(int)];
+    unsigned int matches [MATCHES_BUFFER_SIZE * sizeof(cl_int)];
     err = clEnqueueReadBuffer(queue,
                               clMatch,
                               CL_TRUE,
                               0,
-                              MATCHES_BUFFER_SIZE * sizeof(int),
+                              (size_t)numMatches * sizeof(cl_int),
                               matches,
                               0,
                               NULL,
@@ -325,6 +358,27 @@ void* search::readMatchesOutput()
     }
 
     return matches;
+}
+
+// Transfer matchesIndex buffer back to host
+int search::readMatchesIndexOutput()
+{
+    int index;
+    err = clEnqueueReadBuffer(queue,
+                              clMatchIndex,
+                              CL_TRUE,
+                              0,
+                              sizeof(int),
+                              &index,
+                              0,
+                              NULL,
+                              NULL);
+    if (VERBOSE)
+    {
+        cout << "clMatchIndex read buffer error: " << err << "\n";
+    }
+
+    return index;
 }
 
 cv::Mat search::getInputImage()

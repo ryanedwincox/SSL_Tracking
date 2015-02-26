@@ -79,15 +79,22 @@ int main(int argc, char *argv[])
         s1.runProgram();
         // newDataPointer is used to display image in gui
         unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
-        unsigned int* newMatchesPointer = (unsigned int*) s1.readMatchesOutput();
+        int matchIndex = s1.readMatchesIndexOutput();
+        std::cout << "Match Index: " << matchIndex << std::endl;
+        if (matchIndex > 0)
+        {
+            unsigned int* newMatchesPointer = (unsigned int*) s1.readMatchesOutput(matchIndex);
+
+            // Print matches
+            std::cout << "Matches" << std::endl;
+            for (int i = 0; i < matchIndex / 2; i+=2)
+            {
+                std::cout << "match: " << newMatchesPointer[i] << "," << newMatchesPointer[i+1] << std::endl;
+            }
+        }
+
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer);
-
-//        // Print matches
-//        for (int i = 0; i < MATCHES_BUFFER_SIZE; i+=2)
-//        {
-//            std::cout << "match: " << newMatchesPointer[i] << "," << newMatchesPointer[i+1] << std::endl;
-//        }
 
 //        // Display images
         cv::imshow("New Image", newImage);           // Show our image inside it.

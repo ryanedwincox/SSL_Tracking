@@ -11,7 +11,7 @@
 
 #define MAX_LOG_SIZE (0x100000)
 #define MATCHES_BUFFER_SIZE 100 // cl_int
-#define VERBOSE true
+#define VERBOSE false
 
 class search
 {
@@ -22,7 +22,8 @@ public:
     void buildProgram(const char* clPath, cl_int win, cl_double p);
     void runProgram();
     void* readOutput();
-    void* readMatchesOutput();
+    void* readMatchesOutput(cl_int numMatches);
+    int readMatchesIndexOutput();
     cv::Mat getInputImage();
 private:
     cv::Mat image;
@@ -32,6 +33,7 @@ private:
     const char* clPath;
     cl_int win;
     cl_double p;
+    cl_int matchesIndex;
 
     FILE* programHandle;
     char *programBuffer;
@@ -44,6 +46,7 @@ private:
     cl_kernel kernel;
     cl_mem clImage;
     cl_mem clResult;
+    cl_mem clMatchIndex;
     cl_mem clMatch;
     cl_command_queue queue;
 };

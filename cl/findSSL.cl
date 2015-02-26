@@ -1,16 +1,16 @@
-// TODO convert to float4 to use GPU vector arithimitic optimization
-// TODO make static parameters constant
 #define LOCAL_SIZE 256  // size of local workspace
 __kernel void filter_kernel(
         const __global uchar * img, //bgr
         __global uchar * newImg, //bgr
         __local uchar * imgRow,
-        int w,
-        int h,
-        int win,
-        double p,
+        const int w,
+        const int h,
+        const int win,
+        const double p,
+        volatile __global int * matchesIndex,
         __global int * matches
     ) {
+
     // Identify workgroup
     int i = get_group_id(0);
     int j = get_group_id(1);
@@ -26,6 +26,7 @@ __kernel void filter_kernel(
 
     // Make sure all threads have finished loading all pixels
     wait_group_events (1, &e);
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     // This loop spreads the work for the whole row onto one local workspace
     for (int core = iDx; core < w; core+=LOCAL_SIZE)
@@ -61,9 +62,13 @@ __kernel void filter_kernel(
         if (m1 > 0.5)
         {
             newImg[globalPos] = m1 * 255;
-    //        matchesIndex++;
-    //        matches[matchesIndex] = xpos;
-    //        matches[matchesIndex + 1] = ypos;
+
+            // write corrdinates of matches to matches and increment matches index twice to store corrdinates in the correct spot
+            int index = atomic_inc(matchesIndex);
+            matches[index] = xpos;
+
+            index = atomic_inc(matchesIndex);
+            matches[index] = ypos;
         }
         else if (m2 > 0.5)
         {
@@ -73,7 +78,6 @@ __kernel void filter_kernel(
         {
             newImg[globalPos] = 0;
         }
-
 
 //         // copy image
 //        newImg[globalPos] = imgRow[core];
