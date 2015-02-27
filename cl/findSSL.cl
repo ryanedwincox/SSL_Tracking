@@ -26,7 +26,6 @@ __kernel void filter_kernel(
 
     // Make sure all threads have finished loading all pixels
     wait_group_events (1, &e);
-    barrier(CLK_LOCAL_MEM_FENCE);
 
     // This loop spreads the work for the whole row onto one local workspace
     for (int core = iDx; core < w; core+=LOCAL_SIZE)
@@ -85,9 +84,6 @@ __kernel void filter_kernel(
         {
             newImg[globalPos] = 0;
         }
-
-//         // copy image
-//        newImg[globalPos] = imgRow[core];
     }
 }
 

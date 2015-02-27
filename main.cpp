@@ -4,6 +4,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
+#include <stack>
 
 #include "search.h"
 
@@ -91,6 +92,9 @@ int main(int argc, char *argv[])
         int matchIndex = s1.readMatchesIndexOutput();
         int matchIndex2 = s2.readMatchesIndexOutput();
 
+        // Create a list to store all matches
+        std::list< std::vector<int> > matches;
+
         std::cout << "Match Index X: " << matchIndex << std::endl;
         if (matchIndex > 0)
         {
@@ -100,11 +104,14 @@ int main(int argc, char *argv[])
             std::cout << "Matches X" << std::endl;
             for (int i = 0; i < matchIndex; i++)
             {
-                int x = newMatchesPointer[2*i];
-                int y = newMatchesPointer[2*i+1];
-                std::cout << "match: " << x << "," << y << std::endl;
+                // There is a cleaner way to do this
+                std::vector<int> val;
+                val.push_back(newMatchesPointer[2*i]);
+                val.push_back(newMatchesPointer[2*i+1]);
+                matches.push_front(val);
+                std::cout << "match: " << matches.front()[0] << "," << matches.front()[1] << std::endl;
 
-                cv::circle(img, cv::Point(x,y), 3, cv::Scalar(0,255,0), -1);
+                cv::circle(img, cv::Point(matches.front()[0],matches.front()[1]), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
@@ -117,21 +124,27 @@ int main(int argc, char *argv[])
             std::cout << "Matches Y" << std::endl;
             for (int i = 0; i < matchIndex2; i++)
             {
-                int x = newMatchesPointer[2*i+1];
-                int y = newMatchesPointer[2*i];
-                std::cout << "match: " << x << "," << y << std::endl;
+                std::vector<int> val;
+                val.push_back(newMatchesPointer[2*i+1]);
+                val.push_back(newMatchesPointer[2*i]);
+                matches.push_front(val);
+                std::cout << "match: " << matches.front()[0] << "," << matches.front()[1] << std::endl;
 
-                cv::circle(img, cv::Point(x,y), 3, cv::Scalar(0,255,0), -1);
+                cv::circle(img, cv::Point(matches.front()[0],matches.front()[1]), 3, cv::Scalar(0,255,0), -1);
             }
         }
+
+        // AVERAGE CLUSTERS
+        // Creates a list to store all averaged matches
+//        int avgMatches[matchIndex+matchIndex2][2];
 
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
 
         // Display images
-        cv::imshow("New Image", newImage);
+//        cv::imshow("New Image", newImage);
 
-        cv::imshow("Binary Image", imgBin);
+//        cv::imshow("Binary Image", imgBinTrans);
 
         cv::imshow("Original Image", img);
 
