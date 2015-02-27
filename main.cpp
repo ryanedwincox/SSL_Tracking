@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
         cvtColor(img, imgGray, CV_BGR2GRAY);
 
         // convert to binary
-        double thresh = 135;
+        double thresh = 110;
         cv::Mat imgBin;
         cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
 
@@ -87,19 +87,25 @@ int main(int argc, char *argv[])
 
             // Print matches
             std::cout << "Matches" << std::endl;
-            for (int i = 0; i < matchIndex / 2; i+=2)
+            for (int i = 0; i < 100 / 2; i+=2)
             {
-                std::cout << "match: " << newMatchesPointer[i] << "," << newMatchesPointer[i+1] << std::endl;
+                int x = newMatchesPointer[i];
+                int y = newMatchesPointer[i+1];
+                std::cout << "match: " << x << "," << y << std::endl;
+
+                cv::circle(img, cv::Point(x,y), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer);
 
-//        // Display images
-        cv::imshow("New Image", newImage);           // Show our image inside it.
+        // Display images
+        cv::imshow("New Image", newImage);
 
-        cv::imshow("Original Image", imgBin);           // Show our image inside it.
+        cv::imshow("Binary Image", imgBin);
+
+        cv::imshow("Original Image", img);
 
         // keep window open until any key is pressed
 //        cv::waitKey(1);

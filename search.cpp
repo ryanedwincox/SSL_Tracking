@@ -340,7 +340,7 @@ void* search::readOutput() {
 }
 
 // Transfer Match buffer back to host
-void* search::readMatchesOutput(int numMatches)
+unsigned int* search::readMatchesOutput(unsigned int numMatches)
 {
     unsigned int matches [MATCHES_BUFFER_SIZE * sizeof(cl_int)];
     err = clEnqueueReadBuffer(queue,

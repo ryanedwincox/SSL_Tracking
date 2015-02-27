@@ -59,20 +59,26 @@ __kernel void filter_kernel(
         double m1 = (double) (sumMismatch1 - sumMatch1) / win; // matching function value
         double m2 = (double) (sumMismatch2 - sumMatch2) / win; // matching function value
 
-        if (m1 > 0.5)
+
+        if (m1 > 0.6)
         {
             newImg[globalPos] = m1 * 255;
 
             // write corrdinates of matches to matches and increment matches index twice to store corrdinates in the correct spot
             int index = atomic_inc(matchesIndex);
-            matches[index] = xpos;
 
-            index = atomic_inc(matchesIndex);
-            matches[index] = ypos;
+            matches[2*index+0] = core;
+            matches[2*index+1] = ypos;
         }
-        else if (m2 > 0.5)
+        else if (m2 > 0.6)
         {
             newImg[globalPos] = m2 * 255;
+
+            // write corrdinates of matches to matches and increment matches index twice to store corrdinates in the correct spot
+            int index = atomic_inc(matchesIndex);
+
+            matches[2*index+0] = core;
+            matches[2*index+1] = ypos;
         }
         else
         {

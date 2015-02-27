@@ -22,7 +22,7 @@ public:
     void buildProgram(const char* clPath, cl_int win, cl_double p);
     void runProgram();
     void* readOutput();
-    void* readMatchesOutput(cl_int numMatches);
+    unsigned int* readMatchesOutput(unsigned int numMatches);
     int readMatchesIndexOutput();
     cv::Mat getInputImage();
 private:
