@@ -46,9 +46,11 @@ int main(int argc, char *argv[])
     const char * findSSLClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
     search s1;
+    search s2;
     cl_int win = 40;
     cl_double p = 0.5;
     s1.buildProgram(findSSLClPath, win, p);
+    s2.buildProgram(findSSLClPath, win, p);
 
     cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
 
@@ -74,23 +76,49 @@ int main(int argc, char *argv[])
         cv::Mat imgBin;
         cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
 
+        // transpose for verticle detection
+        cv::Mat imgBinTrans;
+        cv::transpose(imgBin, imgBinTrans);
+
         s1.setImage(imgBin);
+        s2.setImage(imgBinTrans);
 
         s1.runProgram();
-        // newDataPointer is used to display image in gui
+        s2.runProgram();
+        // newDataPointer is used to display image
         unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
+        unsigned char* newDataPointer2 = (unsigned char*) s1.readOutput();
         int matchIndex = s1.readMatchesIndexOutput();
-        std::cout << "Match Index: " << matchIndex << std::endl;
+        int matchIndex2 = s2.readMatchesIndexOutput();
+
+        std::cout << "Match Index X: " << matchIndex << std::endl;
         if (matchIndex > 0)
         {
-            unsigned int* newMatchesPointer = (unsigned int*) s1.readMatchesOutput(matchIndex);
+            unsigned int* newMatchesPointer = s1.readMatchesOutput(matchIndex);
 
             // Print matches
-            std::cout << "Matches" << std::endl;
-            for (int i = 0; i < 100 / 2; i+=2)
+            std::cout << "Matches X" << std::endl;
+            for (int i = 0; i < matchIndex; i++)
             {
-                int x = newMatchesPointer[i];
-                int y = newMatchesPointer[i+1];
+                int x = newMatchesPointer[2*i];
+                int y = newMatchesPointer[2*i+1];
+                std::cout << "match: " << x << "," << y << std::endl;
+
+                cv::circle(img, cv::Point(x,y), 3, cv::Scalar(0,255,0), -1);
+            }
+        }
+
+        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
+        if (matchIndex2 > 0)
+        {
+            unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
+
+            // Print matches
+            std::cout << "Matches Y" << std::endl;
+            for (int i = 0; i < matchIndex2; i++)
+            {
+                int x = newMatchesPointer[2*i+1];
+                int y = newMatchesPointer[2*i];
                 std::cout << "match: " << x << "," << y << std::endl;
 
                 cv::circle(img, cv::Point(x,y), 3, cv::Scalar(0,255,0), -1);
@@ -98,7 +126,7 @@ int main(int argc, char *argv[])
         }
 
         // newImage is passed into the next filter
-        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer);
+        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
 
         // Display images
         cv::imshow("New Image", newImage);

@@ -189,6 +189,11 @@ void search::setImage(cv::Mat img)
         cout << "clMatchIndex Buffer error: " << err << "\n";
     }
 
+    if (VERBOSE)
+    {
+        cout << "clMatchIndex Buffer error: " << err << "\n";
+    }
+
     // Create matches buffer
     clMatch = clCreateBuffer(context,
                              CL_MEM_WRITE_ONLY,
@@ -347,7 +352,7 @@ unsigned int* search::readMatchesOutput(unsigned int numMatches)
                               clMatch,
                               CL_TRUE,
                               0,
-                              (size_t)numMatches * sizeof(cl_int),
+                              (size_t)numMatches * 2 * sizeof(cl_int), // 2 elements per match
                               matches,
                               0,
                               NULL,
