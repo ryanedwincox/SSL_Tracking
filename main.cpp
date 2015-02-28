@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         cvtColor(img, imgGray, CV_BGR2GRAY);
 
         // convert to binary
-        double thresh = 110;
+        double thresh = 150;
         cv::Mat imgBin;
         cv::threshold(imgGray, imgBin, thresh, 255, cv::THRESH_BINARY);
 
@@ -93,58 +93,103 @@ int main(int argc, char *argv[])
         int matchIndex2 = s2.readMatchesIndexOutput();
 
         // Create a list to store all matches
-        std::list< std::vector<int> > matches;
+        std::list< cv::Point > matches;
 
-        std::cout << "Match Index X: " << matchIndex << std::endl;
+//        std::cout << "Match Index X: " << matchIndex << std::endl;
         if (matchIndex > 0)
         {
             unsigned int* newMatchesPointer = s1.readMatchesOutput(matchIndex);
 
             // Print matches
-            std::cout << "Matches X" << std::endl;
+//            std::cout << "Matches X" << std::endl;
             for (int i = 0; i < matchIndex; i++)
             {
-                // There is a cleaner way to do this
-                std::vector<int> val;
-                val.push_back(newMatchesPointer[2*i]);
-                val.push_back(newMatchesPointer[2*i+1]);
-                matches.push_front(val);
-                std::cout << "match: " << matches.front()[0] << "," << matches.front()[1] << std::endl;
 
-                cv::circle(img, cv::Point(matches.front()[0],matches.front()[1]), 3, cv::Scalar(0,255,0), -1);
+                cv::Point match (newMatchesPointer[2*i], newMatchesPointer[2*i+1]);
+                matches.push_front(match);
+//                std::cout << "match: " << matches.front() << std::endl;
+
+//                // Color a point at each match
+//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
-        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
+//        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
         if (matchIndex2 > 0)
         {
             unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
 
             // Print matches
-            std::cout << "Matches Y" << std::endl;
+//            std::cout << "Matches Y" << std::endl;
             for (int i = 0; i < matchIndex2; i++)
             {
-                std::vector<int> val;
-                val.push_back(newMatchesPointer[2*i+1]);
-                val.push_back(newMatchesPointer[2*i]);
-                matches.push_front(val);
-                std::cout << "match: " << matches.front()[0] << "," << matches.front()[1] << std::endl;
+                cv::Point match (newMatchesPointer[2*i+1], newMatchesPointer[2*i]);
+                matches.push_front(match);
+//                std::cout << "match: " << matches.front() << std::endl;
 
-                cv::circle(img, cv::Point(matches.front()[0],matches.front()[1]), 3, cv::Scalar(0,255,0), -1);
+//                // Color a point at each match
+//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
         // AVERAGE CLUSTERS
         // Creates a list to store all averaged matches
-//        int avgMatches[matchIndex+matchIndex2][2];
+        std::list< cv::Point > avgMatches;
+        while (!matches.empty())
+        {
+            int xsum = 0;
+            int ysum = 0;
+            // get current cluster and remove first corrdinate from list
+            cv::Point cluster = matches.front();
+            matches.pop_front();
+            int i = 0;
+            int count = 0;
+            int radius = 30;
+            while (i < matches.size())
+            {
+                cv::Point match = matches.front();
+                if (abs(match.x - cluster.x) < radius && abs(match.y - cluster.y) < radius)
+                {
+                    matches.pop_front();
+                    xsum+= match.x;
+                    ysum+= match.y;
+                    i--;
+                    count++;
+                }
+                i++;
+            }
+
+            // only count matches if there are several in a cluster
+            std::cout << count << std::endl;
+            if (count > 2)
+            {
+                cv::Point avgMatch (xsum/count, ysum/count);
+                avgMatches.push_front(avgMatch);
+            }
+        }
+
+//        std::cout << "Cluster center" << std::endl;
+
+        // Draw red taget over averaged matches
+        for (int i = 0; i < avgMatches.size(); i++)
+        {
+            int l = 7; //radius of cross
+            cv::Point center = avgMatches.front();
+//            std::cout << center << std::endl;
+            avgMatches.pop_front();
+            // TODO edge cases
+            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 1);
+            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 1);
+
+        }
 
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
 
         // Display images
-//        cv::imshow("New Image", newImage);
+        cv::imshow("New Image", newImage);
 
-//        cv::imshow("Binary Image", imgBinTrans);
+        cv::imshow("Binary Image", imgBin);
 
         cv::imshow("Original Image", img);
 
