@@ -10,8 +10,8 @@
 #include <fstream>
 
 #define MAX_LOG_SIZE (0x100000)
-#define MATCHES_BUFFER_SIZE 1000
-#define VERBOSE false
+#define MATCHES_BUFFER_SIZE 10000
+#define VERBOSE true
 
 class search
 {
