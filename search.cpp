@@ -2,6 +2,11 @@
 
 using namespace std;
 
+void pfn_notify(const char *errinfo, const void *private_info, size_t cb, void *user_data)
+{
+    cout << stderr << "OpenCL Error (via pfn_notify): " << errinfo << endl;
+}
+
 // Constructor
 search::search()
 {
@@ -69,7 +74,7 @@ search::search()
     }
 
     // create a single context for all devices
-    context = clCreateContext(NULL, deviceCount, devices, NULL, NULL, &err);
+    context = clCreateContext(NULL, deviceCount, devices, &pfn_notify, NULL, &err);
     if (VERBOSE)
     {
         cout << "context error: " << err << endl;
@@ -159,7 +164,7 @@ void search::setImage(cv::Mat img)
     // Create an OpenCL buffer for the image
     clImage = clCreateBuffer(context,
                              CL_MEM_READ_ONLY,
-                             imageSize * sizeof(char),
+                             imageSize * sizeof(uchar),
                              NULL,
                              &err);
     if (VERBOSE)
@@ -170,7 +175,7 @@ void search::setImage(cv::Mat img)
     // Create an OpenCL buffer for the result
     clResult = clCreateBuffer(context,
                               CL_MEM_WRITE_ONLY,
-                              imageSize * sizeof(char),
+                              imageSize * sizeof(uchar),
                               NULL,
                               &err);
     if (VERBOSE)
@@ -180,14 +185,10 @@ void search::setImage(cv::Mat img)
 
     // Create matches buffer
     clMatchIndex = clCreateBuffer(context,
-                             CL_MEM_WRITE_ONLY,
+                             CL_MEM_READ_WRITE,
                              sizeof(cl_int),
                              NULL,
                              &err);
-    if (VERBOSE)
-    {
-        cout << "clMatchIndex Buffer error: " << err << "\n";
-    }
 
     if (VERBOSE)
     {
@@ -210,7 +211,7 @@ void search::setImage(cv::Mat img)
                                clImage,
                                CL_TRUE,
                                0,
-                               imageSize * sizeof(char),
+                               imageSize * sizeof(uchar),
                                (void*) &image.data[0],
                                0,
                                NULL,
@@ -238,8 +239,41 @@ void search::setImage(cv::Mat img)
 }
 
 // Excecutes the kernel
-void search::runProgram()
+void search::runProgram(cv::Mat img)
 {
+    image = img;
+
+    // load image to device
+    err = clEnqueueWriteBuffer(queue,
+                               clImage,
+                               CL_TRUE,
+                               0,
+                               imageSize * sizeof(uchar),
+                               (void*) &image.data[0],
+                               0,
+                               NULL,
+                               NULL);
+    if (VERBOSE)
+    {
+        cout << "enqueueWriteBuffer image error: " << err << "\n";
+    }
+
+    // set matchIndex to 0
+    matchesIndex = 0;
+    err = clEnqueueWriteBuffer(queue,
+                               clMatchIndex,
+                               CL_TRUE,
+                               0,
+                               sizeof(cl_int),
+                               (void*) &matchesIndex,
+                               0,
+                               NULL,
+                               NULL);
+    if (VERBOSE)
+    {
+        cout << "enqueueWriteBuffer matchIndex error: " << err << "\n";
+    }
+
     if (VERBOSE)
     {
         std::cout << "runProgram" << std::endl;
@@ -324,14 +358,14 @@ void* search::readOutput() {
         std::cout << "readOutput" << std::endl;
     }
 
-    unsigned char newData [imageSize * 2 * sizeof(char)];  // **** For some reason making this double the needed size get rid of artifacts at the bottom of displayed image
+    unsigned char newData [imageSize * 2 * sizeof(uchar)];  // **** For some reason making this double the needed size get rid of artifacts at the bottom of displayed image
 
     // Transfer image back to host
     err = clEnqueueReadBuffer(queue,
                               clResult,
                               CL_TRUE,
                               0,
-                              imageSize * sizeof(char),
+                              imageSize * sizeof(uchar),
                               (void*) newData,
                               0,
                               NULL,

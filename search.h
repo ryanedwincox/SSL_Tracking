@@ -11,7 +11,7 @@
 
 #define MAX_LOG_SIZE (0x100000)
 #define MATCHES_BUFFER_SIZE 10000
-#define VERBOSE true
+#define VERBOSE false
 
 class search
 {
@@ -20,7 +20,7 @@ public:
     ~search();
     void setImage(cv::Mat img);
     void buildProgram(const char* clPath, cl_int win, cl_double p);
-    void runProgram();
+    void runProgram(cv::Mat img);
     void* readOutput();
     unsigned int* readMatchesOutput(unsigned int numMatches);
     int readMatchesIndexOutput();

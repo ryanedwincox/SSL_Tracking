@@ -44,6 +44,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+//    double fps=cap.get(CV_CAP_PROP_FPS);
+//    std::cout << fps << std::endl;
+
     // define kernel files
     const char * findSSLClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
@@ -55,6 +58,36 @@ int main(int argc, char *argv[])
     s2.buildProgram(findSSLClPath, win, p);
 
     cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
+
+    // ****
+    // Get new frame
+    cv::Mat img;
+    cap >> img;
+
+    int w = img.cols;
+    int h = img.rows;
+    if (VERBOSE)
+    {
+        std::cout << "image width: " << w << " image height: " << h << std::endl;
+    }
+
+    // convert to grayscale
+    cv::Mat imgGray;
+    cvtColor(img, imgGray, CV_BGR2GRAY);
+
+    // convert to binary
+    int blockSize = 31;
+    int c = 0;
+    cv::Mat imgBin;
+    cv::adaptiveThreshold(imgGray, imgBin, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, c);
+
+    // transpose for verticle detection
+    cv::Mat imgBinTrans;
+    cv::transpose(imgBin, imgBinTrans);
+
+    s1.setImage(imgBin);
+    s2.setImage(imgBinTrans);
+    //****
 
     while (cap.isOpened())
     {
@@ -83,11 +116,11 @@ int main(int argc, char *argv[])
         cv::Mat imgBinTrans;
         cv::transpose(imgBin, imgBinTrans);
 
-        s1.setImage(imgBin);
-        s2.setImage(imgBinTrans);
+//        s1.setImage(imgBin);
+//        s2.setImage(imgBinTrans);
 
-        s1.runProgram();
-        s2.runProgram();
+        s1.runProgram(imgBin);
+        s2.runProgram(imgBinTrans);
         // newDataPointer is used to display image
         unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
         unsigned char* newDataPointer2 = (unsigned char*) s1.readOutput();
@@ -112,78 +145,79 @@ int main(int argc, char *argv[])
 //                std::cout << "match: " << matches.front() << std::endl;
 
 //                // Color a point at each match
-                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
+//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
-////        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
-//        if (matchIndex2 > 0)
-//        {
-//            unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
+//        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
+        if (matchIndex2 > 0)
+        {
+            unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
 
-//            // Print matches
-////            std::cout << "Matches Y" << std::endl;
-//            for (int i = 0; i < matchIndex2; i++)
-//            {
-//                cv::Point match (newMatchesPointer[2*i+1], newMatchesPointer[2*i]);
-//                matches.push_front(match);
-////                std::cout << "match: " << matches.front() << std::endl;
+            // Print matches
+//            std::cout << "Matches Y" << std::endl;
+            for (int i = 0; i < matchIndex2; i++)
+            {
+                cv::Point match (newMatchesPointer[2*i+1], newMatchesPointer[2*i]);
+                matches.push_front(match);
+//                std::cout << "match: " << matches.front() << std::endl;
 
-////                // Color a point at each match
+//                // Color a point at each match
 //                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
-//            }
-//        }
+            }
+        }
 
-//        // AVERAGE CLUSTERS
-//        // Creates a list to store all averaged matches
-//        std::list< cv::Point > avgMatches;
-//        while (!matches.empty())
-//        {
-//            int xsum = 0;
-//            int ysum = 0;
-//            // get current cluster and remove first corrdinate from list
-//            cv::Point cluster = matches.front();
-//            matches.pop_front();
-//            int i = 0;
-//            int count = 0;
-//            int radius = 30;
-//            while (i < matches.size())
-//            {
-//                cv::Point match = matches.front();
-//                if (abs(match.x - cluster.x) < radius && abs(match.y - cluster.y) < radius)
-//                {
-//                    matches.pop_front();
-//                    xsum+= match.x;
-//                    ysum+= match.y;
-//                    i--;
-//                    count++;
-//                }
-//                i++;
-//            }
+        // AVERAGE CLUSTERS
+        // Creates a list to store all averaged matches
+        std::list< cv::Point > avgMatches;
+        while (!matches.empty())
+        {
+            int xsum = 0;
+            int ysum = 0;
+            // get current cluster and remove first corrdinate from list
+            cv::Point cluster = matches.front();
+            matches.pop_front();
+            int i = 0;
+            int count = 0;
+            int radius = 30;
+            while (i < matches.size())
+            {
+                cv::Point match = matches.front();
+                if (abs(match.x - cluster.x) < radius && abs(match.y - cluster.y) < radius)
+                {
+                    matches.pop_front();
+                    xsum+= match.x;
+                    ysum+= match.y;
+                    i--;
+                    count++;
+                }
+                i++;
+            }
 
-//            // only count matches if there are several in a cluster
+            // only count matches if there are several in a cluster
 //            std::cout << count << std::endl;
-//            if (count > 5)
-//            {
-//                cv::Point avgMatch (xsum/count, ysum/count);
-//                avgMatches.push_front(avgMatch);
-//            }
-//        }
+            int minClusterSize = 7;
+            if (count > minClusterSize)
+            {
+                cv::Point avgMatch (xsum/count, ysum/count);
+                avgMatches.push_front(avgMatch);
+            }
+        }
 
 //        std::cout << "Cluster center" << std::endl;
 
-//        // Draw red taget over averaged matches
-//        for (int i = 0; i < avgMatches.size(); i++)
-//        {
-//            int l = 10; //radius of cross
-//            cv::Point center = avgMatches.front();
-////            std::cout << center << std::endl;
-//            avgMatches.pop_front();
-//            // TODO edge cases
-//            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-//            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+        // Draw red taget over averaged matches
+        for (int i = 0; i < avgMatches.size(); i++)
+        {
+            int l = 10; //radius of cross
+            cv::Point center = avgMatches.front();
+//            std::cout << center << std::endl;
+            avgMatches.pop_front();
+            // TODO edge cases
+            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
 
-//        }
+        }
 
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
