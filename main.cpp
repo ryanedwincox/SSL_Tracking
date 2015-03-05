@@ -7,6 +7,7 @@
 #include <stack>
 
 #include "search.h"
+#include "/opt/ros/groovy/include/opencv2/video/tracking.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -57,37 +58,22 @@ int main(int argc, char *argv[])
     s1.buildProgram(findSSLClPath, win, p);
     s2.buildProgram(findSSLClPath, win, p);
 
-    cv::namedWindow("Original Image", cv::WINDOW_AUTOSIZE); // Create a window for display.
+    // Create kalman filter
+    cv::KalmanFilter KF(4, 2, 0);
+    KF.transitionMatrix = *(cv::Mat_<float>(4, 4) << 1,0,1,0,   0,1,0,1,  0,0,1,0,  0,0,0,1);
+    cv::Mat_<float> measurement(2,1); measurement.setTo(cv::Scalar(0));
 
-    // ****
-    // Get new frame
-    cv::Mat img;
-    cap >> img;
+    // Initialize kalman filter
+    KF.statePre.at<float>(0) = 0;
+    KF.statePre.at<float>(1) = 0;
+    KF.statePre.at<float>(2) = 0;
+    KF.statePre.at<float>(3) = 0;
+    setIdentity(KF.measurementMatrix);
+    setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-4));  // lower values mean more prediction
+    setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-3));  // lower values tighten on found points
+    setIdentity(KF.errorCovPost, cv::Scalar::all(.1));
 
-    int w = img.cols;
-    int h = img.rows;
-    if (VERBOSE)
-    {
-        std::cout << "image width: " << w << " image height: " << h << std::endl;
-    }
-
-    // convert to grayscale
-    cv::Mat imgGray;
-    cvtColor(img, imgGray, CV_BGR2GRAY);
-
-    // convert to binary
-    int blockSize = 31;
-    int c = 0;
-    cv::Mat imgBin;
-    cv::adaptiveThreshold(imgGray, imgBin, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, c);
-
-    // transpose for verticle detection
-    cv::Mat imgBinTrans;
-    cv::transpose(imgBin, imgBinTrans);
-
-    s1.setImage(imgBin);
-    s2.setImage(imgBinTrans);
-    //****
+    bool firstTime = true;
 
     while (cap.isOpened())
     {
@@ -116,8 +102,12 @@ int main(int argc, char *argv[])
         cv::Mat imgBinTrans;
         cv::transpose(imgBin, imgBinTrans);
 
-//        s1.setImage(imgBin);
-//        s2.setImage(imgBinTrans);
+        if (firstTime)
+        {
+            s1.setImage(imgBin);
+            s2.setImage(imgBinTrans);
+            firstTime = false;
+        }
 
         s1.runProgram(imgBin);
         s2.runProgram(imgBinTrans);
@@ -206,24 +196,73 @@ int main(int argc, char *argv[])
 
 //        std::cout << "Cluster center" << std::endl;
 
-        // Draw red taget over averaged matches
-        for (int i = 0; i < avgMatches.size(); i++)
-        {
-            int l = 10; //radius of cross
-            cv::Point center = avgMatches.front();
-//            std::cout << center << std::endl;
-            avgMatches.pop_front();
-            // TODO edge cases
-            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+//        // Draw red taget over averaged matches
+//        for (int i = 0; i < avgMatches.size(); i++)
+//        {
+//            int l = 10; //radius of cross
+//            cv::Point center = avgMatches.front();
+////            std::cout << center << std::endl;
+//            avgMatches.pop_front();
 
+//            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+//            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+
+//        }
+
+        // Run Kalman filter
+        // Get target location
+        cv::Point center;
+        if (avgMatches.size() > 0)
+        {
+            center = avgMatches.front();
         }
+        int l = 10; //radius of cross
+        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+
+        static int numPredictions = 0;
+        static int maxNumPredictions = 20;
+
+        std::cout << numPredictions << std::endl;
+
+        // No match found
+        if (avgMatches.size() == 0 && numPredictions < maxNumPredictions)
+        {
+            center.x = KF.statePre.at<float>(0);
+            center.y = KF.statePre.at<float>(1);
+            numPredictions++;
+        }
+        if (avgMatches.size() != 0)  // match found
+        {
+            avgMatches.pop_front();
+            numPredictions = 0;
+        }
+
+        if (avgMatches.size() != 0 || numPredictions < maxNumPredictions)
+        {
+            // First predict, to update the internal statePre variable
+            cv::Mat prediction = KF.predict();
+            cv::Point predictPt(prediction.at<float>(0),prediction.at<float>(1));
+
+            measurement(0) = center.x;
+            measurement(1) = center.y;
+
+            // The "correct" phase that is going to use the predicted value and our measurement
+            cv::Mat estimated = KF.correct(measurement);
+            cv::Point statePt(estimated.at<float>(0),estimated.at<float>(1));
+
+            // draw blue cross at kalman filter estimation
+            l = 10; //radius of cross
+            cv::line(img, (cv::Point){statePt.x-l,statePt.y}, (cv::Point){statePt.x+l,statePt.y}, cv::Scalar(255,0,0), 2);
+            cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
+        }
+
 
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
 
         // Display images
-//        cv::imshow("New Image", newImage);
+        cv::imshow("New Image", newImage);
 
 //        cv::imshow("Binary Image", imgBin);
 
