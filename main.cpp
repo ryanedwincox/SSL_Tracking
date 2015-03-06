@@ -11,30 +11,6 @@
 
 int main(int argc, char *argv[])
 {
-//    // Load image
-//    cv::Mat img = cv::imread("/home/pierre/Documents/SSL_Tracking/images/marker_sample_1.jpg", CV_LOAD_IMAGE_COLOR);
-
-//    // Check for invalid input
-//    if(! img.data )
-//    {
-//        std::cout <<  "Could not open or find the image" << std::endl;
-//    }
-//    else
-//    {
-//        std::cout << "Image loaded" << std::endl;
-//    }
-
-//    int w = img.cols;
-//    int h = img.rows;
-//    std::cout << "image width: " << w << " image height: " << h << std::endl;
-
-//    // Resize image before any other processing
-//    cv::resize(img, img, cv::Size(w/4,h/4), 0.25, 0.25, cv::INTER_AREA);
-//    // update w and h to new image size
-//    w = img.cols;
-//    h = img.rows;
-//    std::cout << "image width: " << w << " image height: " << h << std::endl;
-
     //Create video capture object
     int cameraNum = 0;
     const char* filename = "/home/pierre/Documents/SSL_Tracking/images/OrcusPortageBayMarker.mp4";
@@ -51,6 +27,7 @@ int main(int argc, char *argv[])
     // define kernel files
     const char * findSSLClPath = "/home/pierre/Documents/SSL_Tracking/cl/findSSL.cl";
 
+    // Initialize OpenCL
     search s1;
     search s2;
     cl_int win = 40;
@@ -69,10 +46,11 @@ int main(int argc, char *argv[])
     KF.statePre.at<float>(2) = 0;
     KF.statePre.at<float>(3) = 0;
     setIdentity(KF.measurementMatrix);
-    setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-4));  // lower values mean more prediction
+    setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));  // lower values mean more prediction
     setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-3));  // lower values tighten on found points
     setIdentity(KF.errorCovPost, cv::Scalar::all(.1));
 
+    // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
 
     while (cap.isOpened())
@@ -99,18 +77,19 @@ int main(int argc, char *argv[])
         cv::adaptiveThreshold(imgGray, imgBin, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, c);
 
         // transpose for verticle detection
-        cv::Mat imgBinTrans;
-        cv::transpose(imgBin, imgBinTrans);
+        cv::Mat imgBinVert;
+        cv::transpose(imgBin, imgBinVert);
 
         if (firstTime)
         {
             s1.setImage(imgBin);
-            s2.setImage(imgBinTrans);
+            s2.setImage(imgBinVert);
             firstTime = false;
         }
 
+        // Run OpenCV kernel to find markers
         s1.runProgram(imgBin);
-        s2.runProgram(imgBinTrans);
+        s2.runProgram(imgBinVert);
         // newDataPointer is used to display image
         unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
         unsigned char* newDataPointer2 = (unsigned char*) s1.readOutput();
@@ -120,37 +99,33 @@ int main(int argc, char *argv[])
         // Create a list to store all matches
         std::list< cv::Point > matches;
 
-//        std::cout << "Match Index X: " << matchIndex << std::endl;
+        // Read all matches from OpenCL kernel
         if (matchIndex > 0)
         {
             unsigned int* newMatchesPointer = s1.readMatchesOutput(matchIndex);
 
             // Print matches
-//            std::cout << "Matches X" << std::endl;
             for (int i = 0; i < matchIndex; i++)
             {
 
                 cv::Point match (newMatchesPointer[2*i], newMatchesPointer[2*i+1]);
                 matches.push_front(match);
-//                std::cout << "match: " << matches.front() << std::endl;
 
 //                // Color a point at each match
 //                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
             }
         }
 
-//        std::cout << "Match Index Y: " << matchIndex2 << std::endl;
+        // Read all matches from OpenCL kernel
         if (matchIndex2 > 0)
         {
             unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
 
             // Print matches
-//            std::cout << "Matches Y" << std::endl;
             for (int i = 0; i < matchIndex2; i++)
             {
                 cv::Point match (newMatchesPointer[2*i+1], newMatchesPointer[2*i]);
                 matches.push_front(match);
-//                std::cout << "match: " << matches.front() << std::endl;
 
 //                // Color a point at each match
 //                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
@@ -164,12 +139,16 @@ int main(int argc, char *argv[])
         {
             int xsum = 0;
             int ysum = 0;
+
             // get current cluster and remove first corrdinate from list
             cv::Point cluster = matches.front();
             matches.pop_front();
+
             int i = 0;
             int count = 0;
             int radius = 30;
+
+            // Compare all remaining matches and if they are close to the current match then they are in the same cluster
             while (i < matches.size())
             {
                 cv::Point match = matches.front();
@@ -185,7 +164,6 @@ int main(int argc, char *argv[])
             }
 
             // only count matches if there are several in a cluster
-//            std::cout << count << std::endl;
             int minClusterSize = 7;
             if (count > minClusterSize)
             {
@@ -193,8 +171,6 @@ int main(int argc, char *argv[])
                 avgMatches.push_front(avgMatch);
             }
         }
-
-//        std::cout << "Cluster center" << std::endl;
 
 //        // Draw red taget over averaged matches
 //        for (int i = 0; i < avgMatches.size(); i++)
@@ -210,35 +186,37 @@ int main(int argc, char *argv[])
 //        }
 
         // Run Kalman filter
-        // Get target location
+
+        // numPredictions counts the number of frames since the last positive match
+        static int numPredictions = 0;
+        // maxNumPredictions is the number of frames the filter will guess a position since the last positive match
+        static int maxNumPredictions = 20;
+
+        // Get target location if a match was found
         cv::Point center;
         if (avgMatches.size() > 0)
         {
             center = avgMatches.front();
+            avgMatches.pop_front();
+            numPredictions = 0;
+
+            // If a match was found draw it
+            int l = 10; //radius of cross
+            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
         }
-        int l = 10; //radius of cross
-        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
-
-        static int numPredictions = 0;
-        static int maxNumPredictions = 20;
-
-        std::cout << numPredictions << std::endl;
 
         // No match found
-        if (avgMatches.size() == 0 && numPredictions < maxNumPredictions)
+        // Predict position based on last prediction, don't do this more than maxNumPredictions times
+        else if (numPredictions < maxNumPredictions)
         {
             center.x = KF.statePre.at<float>(0);
             center.y = KF.statePre.at<float>(1);
             numPredictions++;
         }
-        if (avgMatches.size() != 0)  // match found
-        {
-            avgMatches.pop_front();
-            numPredictions = 0;
-        }
 
-        if (avgMatches.size() != 0 || numPredictions < maxNumPredictions)
+        // Either a match was found or we still want to make a prediction based on the previous prediction up to maxNumPredictions times
+        if (avgMatches.size() > 0 || numPredictions < maxNumPredictions)
         {
             // First predict, to update the internal statePre variable
             cv::Mat prediction = KF.predict();
@@ -252,7 +230,7 @@ int main(int argc, char *argv[])
             cv::Point statePt(estimated.at<float>(0),estimated.at<float>(1));
 
             // draw blue cross at kalman filter estimation
-            l = 10; //radius of cross
+            int l = 10; //radius of cross
             cv::line(img, (cv::Point){statePt.x-l,statePt.y}, (cv::Point){statePt.x+l,statePt.y}, cv::Scalar(255,0,0), 2);
             cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
         }
