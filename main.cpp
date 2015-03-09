@@ -11,13 +11,17 @@
 
 // declare local methods
 cv::KalmanFilter createKalmanFilter(int x, int y);
+std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz);
+std::list<cv::Point> averageMatches(std::list<cv::Point> matches);
+cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches);
+cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches);
 
 int main(int argc, char *argv[])
 {
     //Create video capture object
     int cameraNum = 0;
     const char* filename = "/home/pierre/Documents/SSL_Tracking/images/OrcusPortageBayMarker.mp4";
-    cv::VideoCapture cap(cameraNum);
+    cv::VideoCapture cap(filename);
     if(!cap.isOpened())  // check if we succeeded
     {
         std::cout << "camera not found" << std::endl;
@@ -38,7 +42,7 @@ int main(int argc, char *argv[])
     s1.buildProgram(findSSLClPath, win, p);
     s2.buildProgram(findSSLClPath, win, p);
 
-//    // Create kalman filter
+    // Create kalman filter
     cv::KalmanFilter KF = createKalmanFilter(0,0);
     cv::Point statePt;
 
@@ -88,238 +92,33 @@ int main(int argc, char *argv[])
         int matchIndex = s1.readMatchesIndexOutput();
         int matchIndex2 = s2.readMatchesIndexOutput();
 
-        // Create a list to store all matches
+        // read matches from kernel
         std::list< cv::Point > matches;
+        matches = readMatches(s1, matches, matchIndex, true);
+        matches = readMatches(s2, matches, matchIndex2, false);
 
-        // Read all matches from OpenCL kernel
-        if (matchIndex > 0)
+        // Average clusters
+        std::list<cv::Point> avgMatches = averageMatches(matches);
+
+        // Draw targets over averaged matches
+        img = drawTargets(img, avgMatches);
+
+        // run kalman filter
+        statePt = runKalmanFilter(KF, statePt, avgMatches);
+
+        // draw blue cross at kalman filter estimation if there is a valid location
+        if (statePt != (cv::Point){-1,-1})
         {
-            unsigned int* newMatchesPointer = s1.readMatchesOutput(matchIndex);
-
-            // Print matches
-            for (int i = 0; i < matchIndex; i++)
-            {
-
-                cv::Point match (newMatchesPointer[2*i], newMatchesPointer[2*i+1]);
-                matches.push_front(match);
-
-//                // Color a point at each match
-//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
-            }
-        }
-
-        // Read all matches from OpenCL kernel
-        if (matchIndex2 > 0)
-        {
-            unsigned int* newMatchesPointer = s2.readMatchesOutput(matchIndex2);
-
-            // Print matches
-            for (int i = 0; i < matchIndex2; i++)
-            {
-                cv::Point match (newMatchesPointer[2*i+1], newMatchesPointer[2*i]);
-                matches.push_front(match);
-
-//                // Color a point at each match
-//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
-            }
-        }
-
-        // AVERAGE CLUSTERS
-        // Creates a list to store all averaged matches
-        std::list< cv::Point > avgMatches;
-        while (!matches.empty())
-        {
-            int xsum = 0;
-            int ysum = 0;
-
-            // get current cluster and remove first corrdinate from list
-            cv::Point cluster = matches.front();
-            matches.pop_front();
-
-            int i = 0;
-            int count = 0;
-            int radius = 30;
-
-            // Compare all remaining matches and if they are close to the current match then they are in the same cluster
-            while (i < matches.size())
-            {
-                cv::Point match = matches.front();
-                if (abs(match.x - cluster.x) < radius && abs(match.y - cluster.y) < radius)
-                {
-                    matches.pop_front();
-                    xsum+= match.x;
-                    ysum+= match.y;
-                    i--;
-                    count++;
-                }
-                i++;
-            }
-
-            // only count matches if there are several in a cluster
-            int minClusterSize = 7;
-            if (count > minClusterSize)
-            {
-                cv::Point avgMatch (xsum/count, ysum/count);
-                avgMatches.push_front(avgMatch);
-            }
-        }
-
-        // Draw red taget over averaged matches
-        std::list< cv::Point > avgMatchesCp = avgMatches;
-        for (int i = 0; i < avgMatchesCp.size(); i++)
-        {
-            int l = 10; //radius of cross
-            cv::Point center = avgMatchesCp.front();
-//            std::cout << center << std::endl;
-            avgMatchesCp.pop_front();
-
-            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
-        }
-
-        // Run Kalman filter
-
-        // numPredictions counts the number of frames since the last positive match
-        static int numPredictions = 0;
-        // maxNumPredictions is the number of frames the filter will guess a position since the last positive match
-        static int maxNumPredictions = 20;
-
-        // Get target location if a match was found
-        cv::Point center;
-        if (avgMatches.size() > 0)
-        {
-            int radius = 20;
-
-
-                // loop through all average matches to see if any are close to previous match
-                std::list< cv::Point > avgMatchesCopy = avgMatches;
-                for (int i = 0; i < avgMatchesCopy.size(); i++)
-                {
-//                    std::cout << "search" << std::endl;
-    //                std::cout << statePt << std::endl;
-                    // find if close to previous match
-                    if (abs(avgMatchesCopy.front().x - statePt.x) < radius && abs(avgMatchesCopy.front().y - statePt.y) < radius)
-                    {
-                        // it is close to one of the previous matches so use that one
-                        // push it on front of avgMatches so it will be used first
-                        // this means there is an extra duplicate match is avgMatches
-                        avgMatches.push_front(avgMatchesCopy.front());
-//                        std::cout << "found" << std::endl;
-                        break;
-                    }
-//
-
-                    // check all matches
-                    avgMatchesCopy.pop_front();
-                }
-
-            // current match is close to previous match
-            if (abs(avgMatches.front().x - statePt.x) < radius && abs(avgMatches.front().y - statePt.y) < radius)
-            {
-                center = avgMatches.front();
-                avgMatches.pop_front();
-                numPredictions = 0;
-                std::cout << "case 1" << std::endl;
-            }
-//            There was no match close to previous match, but the predition is close so use that
-            else if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius && numPredictions < maxNumPredictions )// && KF.statePre.at<float>(0) != 0)
-            {
-                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
-                avgMatches.pop_front();
-                numPredictions++;
-                std::cout << "case 2" << std::endl;
-            }
-            // no current matches are close to previous match so create new filter
-            else// (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(numPredictions < maxNumPredictions))
-            {
-                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
-                center = avgMatches.front();
-                avgMatches.pop_front();
-                numPredictions = 0;
-                std::cout << "case 3" << std::endl;
-                std::cout << "new filter***********" << std::endl;
-            }
-
-//                std::cout << statePt << std::endl;
-//                std::cout << KF.statePre.at<float>(0) << "," << KF.statePre.at<float>(1) << std::endl;
-//            // if no current match is in the radius and the predicted value is not in the radius create a new filter
-//            if (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius))
-//            {
-//                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
-//                std::cout << "new filter***********" << std::endl;
-//                std::cout << KF.statePre.at<float>(0) << std::endl;
-//            }
-////            if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius)
-////            {
-////                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
-////            }
-////            else
-////            {
-//                center = avgMatches.front();
-//                avgMatches.pop_front();
-//                numPredictions = 0;
-////            }
-
-
-            // If a match was found draw it
-            int l = 10; //radius of cross
-            cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-            cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
-        }
-        // No match found
-        // Predict position based on last prediction, don't do this more than maxNumPredictions times
-        else if (numPredictions < maxNumPredictions)
-        {
-            center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
-            numPredictions++;
-
-//            int radius = 40;
-//            if (abs(center.x - statePt.x) < radius && abs(center.y - statePt.y) < radius)
-//            {
-//                KF = createKalmanFilter(center.x, center.y);
-//                std::cout << "new filter" << std::endl;
-//            }
-        }
-
-//        if (avgMatches.size() > 0 && numPredictions < maxNumPredictions)
-//        {
-//                center.x = KF.statePre.at<float>(0);
-//                center.y = KF.statePre.at<float>(1);
-//                numPredictions++;
-//        }
-
-
-
-        // Either a match was found or we still want to make a prediction based on the previous prediction up to maxNumPredictions times
-        if (avgMatches.size() > 0 || numPredictions < maxNumPredictions)
-        {
-
-
-
-            // First predict, to update the internal statePre variable
-            cv::Mat prediction = KF.predict();
-            cv::Point predictPt(prediction.at<float>(0),prediction.at<float>(1));
-
-            cv::Mat_<float> measurement(2,1); measurement.setTo(cv::Scalar(0));
-            measurement(0) = center.x;
-            measurement(1) = center.y;
-
-            // The "correct" phase that is going to use the predicted value and our measurement
-            cv::Mat estimated = KF.correct(measurement);
-            statePt = (cv::Point){(int)estimated.at<float>(0),(int)estimated.at<float>(1)};
-
-            // draw blue cross at kalman filter estimation
             int l = 10; //radius of cross
             cv::line(img, (cv::Point){statePt.x-l,statePt.y}, (cv::Point){statePt.x+l,statePt.y}, cv::Scalar(255,0,0), 2);
             cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
         }
 
-
         // newImage is passed into the next filter
         cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
 
         // Display images
-//        cv::imshow("New Image", newImage);
+        cv::imshow("New Image", newImage);
 
 //        cv::imshow("Binary Image", imgBin);
 
@@ -350,4 +149,194 @@ cv::KalmanFilter createKalmanFilter(int x, int y)
     setIdentity(KF.errorCovPost, cv::Scalar::all(.1));
 
     return KF;
+}
+
+std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz)
+{
+    // Read all matches from OpenCL kernel
+    if (matchIndex > 0)
+    {
+        unsigned int* newMatchesPointer = s.readMatchesOutput(matchIndex);
+
+        // loop through matches
+        for (int i = 0; i < matchIndex; i++)
+        {
+            cv::Point match;
+            // need to know if the kernel ran horizontally or vertically because x and y are flipped
+            if (horz)
+            {
+                match = (cv::Point){newMatchesPointer[2*i], newMatchesPointer[2*i+1]};
+            }
+            else //vertical
+            {
+                match = (cv::Point){newMatchesPointer[2*i+1], newMatchesPointer[2*i]};
+            }
+            matches.push_front(match);
+
+//                // Color a point at each match
+//                cv::circle(img, matches.front(), 3, cv::Scalar(0,255,0), -1);
+        }
+    }
+    return matches;
+}
+
+std::list<cv::Point> averageMatches(std::list<cv::Point> matches)
+{
+    // Creates a list to store all averaged matches
+    std::list< cv::Point > avgMatches;
+    while (!matches.empty())
+    {
+        int xsum = 0;
+        int ysum = 0;
+
+        // get current cluster and remove first corrdinate from list
+        cv::Point cluster = matches.front();
+        matches.pop_front();
+
+        int i = 0;
+        int count = 0;
+        int radius = 30;
+
+        // Compare all remaining matches and if they are close to the current match then they are in the same cluster
+        while (i < matches.size())
+        {
+            cv::Point match = matches.front();
+            if (abs(match.x - cluster.x) < radius && abs(match.y - cluster.y) < radius)
+            {
+                matches.pop_front();
+                xsum+= match.x;
+                ysum+= match.y;
+                i--;
+                count++;
+            }
+            i++;
+        }
+
+        // only count matches if there are several in a cluster
+        int minClusterSize = 7;
+        if (count > minClusterSize)
+        {
+            cv::Point avgMatch (xsum/count, ysum/count);
+            avgMatches.push_front(avgMatch);
+        }
+    }
+    return avgMatches;
+}
+
+cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches)
+{
+    // Draw red taget over averaged matches
+    for (int i = 0; i < avgMatches.size(); i++)
+    {
+        int l = 10; //radius of cross
+        cv::Point center = avgMatches.front();
+//            std::cout << center << std::endl;
+        avgMatches.pop_front();
+
+        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+    }
+    return img;
+}
+
+cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches)
+{
+    // Run Kalman filter
+
+    // numPredictions counts the number of frames since the last positive match
+    static int numPredictions = 0;
+    // maxNumPredictions is the number of frames the filter will guess a position since the last positive match
+    static int maxNumPredictions = 5;
+
+    // Get target location if a match was found
+    cv::Point center;
+    if (avgMatches.size() > 0)
+    {
+        int radius = 40;
+
+        std::cout << "matches found" << std::endl;
+
+        // loop through all average matches to see if any are close to previous match
+        std::list< cv::Point > avgMatchesCopy = avgMatches;
+        for (int i = 0; i < avgMatchesCopy.size(); i++)
+        {
+//                std::cout << "search" << std::endl;
+//                std::cout << statePt << std::endl;
+            // find if close to previous match
+            if (abs(avgMatchesCopy.front().x - statePt.x) < radius && abs(avgMatchesCopy.front().y - statePt.y) < radius)
+            {
+                // it is close to one of the previous matches so use that one
+                // push it on front of avgMatches so it will be used first
+                // this means there is an extra duplicate match is avgMatches
+                avgMatches.push_front(avgMatchesCopy.front());
+//                        std::cout << "found" << std::endl;
+                break;
+            }
+
+            // check all matches
+            avgMatchesCopy.pop_front();
+        }
+
+        // current match is close to previous match
+        if (abs(avgMatches.front().x - statePt.x) < radius && abs(avgMatches.front().y - statePt.y) < radius)
+        {
+            center = avgMatches.front();
+            avgMatches.pop_front();
+            numPredictions = 0;
+            std::cout << "case 1" << std::endl;
+        }
+//            There was no match close to previous match, but the predition is close so use that
+        else if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius && numPredictions < maxNumPredictions )// && KF.statePre.at<float>(0) != 0)
+        {
+            center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
+            std::cout << statePt << std::endl;
+            avgMatches.pop_front();
+            numPredictions++;
+            std::cout << "case 2" << std::endl;
+        }
+        // no current matches are close to previous match so create new filter
+        else// (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(numPredictions < maxNumPredictions))
+        {
+            KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
+            center = avgMatches.front();
+            avgMatches.pop_front();
+            numPredictions = 0;
+            std::cout << "case 3" << std::endl;
+            std::cout << "new filter***********" << std::endl;
+        }
+
+//        // If a match was found draw it
+//        int l = 10; //radius of cross
+//        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
+//        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+    }
+    // No match found
+    // Predict position based on last prediction, don't do this more than maxNumPredictions times
+    else if (numPredictions < maxNumPredictions)
+    {
+        center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
+        numPredictions++;
+    }
+    // marker position not known
+    else
+    {
+        statePt =  (cv::Point){-1,-1};
+    }
+
+    // Either a match was found or we still want to make a prediction based on the previous prediction up to maxNumPredictions times
+    if (avgMatches.size() > 0 || numPredictions < maxNumPredictions)
+    {
+        // First predict, to update the internal statePre variable
+        cv::Mat prediction = KF.predict();
+        cv::Point predictPt(prediction.at<float>(0),prediction.at<float>(1));
+
+        cv::Mat_<float> measurement(2,1); measurement.setTo(cv::Scalar(0));
+        measurement(0) = center.x;
+        measurement(1) = center.y;
+
+        // The "correct" phase that is going to use the predicted value and our measurement
+        cv::Mat estimated = KF.correct(measurement);
+        statePt = (cv::Point){(int)estimated.at<float>(0),(int)estimated.at<float>(1)};
+    }
+    return statePt;
 }
