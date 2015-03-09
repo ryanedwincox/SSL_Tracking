@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
                 std::list< cv::Point > avgMatchesCopy = avgMatches;
                 for (int i = 0; i < avgMatchesCopy.size(); i++)
                 {
-                    std::cout << "search" << std::endl;
+//                    std::cout << "search" << std::endl;
     //                std::cout << statePt << std::endl;
                     // find if close to previous match
                     if (abs(avgMatchesCopy.front().x - statePt.x) < radius && abs(avgMatchesCopy.front().y - statePt.y) < radius)
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
                         // push it on front of avgMatches so it will be used first
                         // this means there is an extra duplicate match is avgMatches
                         avgMatches.push_front(avgMatchesCopy.front());
-                        std::cout << "found" << std::endl;
+//                        std::cout << "found" << std::endl;
                         break;
                     }
 //
@@ -213,44 +213,52 @@ int main(int argc, char *argv[])
                     avgMatchesCopy.pop_front();
                 }
 
-//            // current match is close to previous match
-//            if (abs(avgMatches.front().x - statePt.x) < radius && abs(avgMatches.front().y - statePt.y) < radius && !(numPredictions < maxNumPredictions))
-//            {
-//                center = avgMatches.front();
-//                avgMatches.pop_front();
-//                numPredictions = 0;
-//            }
-////            There was no match close to previous match, but the predition is close so use that
-//            else if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius)
-//            {
-//                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
-//                avgMatches.pop_front();
-//            }
-//            // no current matches are close to previous match so create new filter
-//            else// (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(numPredictions < maxNumPredictions))
-//            {
-//                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
-//                avgMatches.pop_front();
-//                std::cout << "new filter***********" << std::endl;
-//            }
-
-            // if no current match is in the radius and the predicted value is not in the radius create a new filter
-            if (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius))
-            {
-                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
-                std::cout << "new filter***********" << std::endl;
-                std::cout << KF.statePre.at<float>(0) << std::endl;
-            }
-            if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius)
-            {
-                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
-            }
-            else
+            // current match is close to previous match
+            if (abs(avgMatches.front().x - statePt.x) < radius && abs(avgMatches.front().y - statePt.y) < radius)
             {
                 center = avgMatches.front();
                 avgMatches.pop_front();
                 numPredictions = 0;
+                std::cout << "case 1" << std::endl;
             }
+//            There was no match close to previous match, but the predition is close so use that
+            else if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius && numPredictions < maxNumPredictions )// && KF.statePre.at<float>(0) != 0)
+            {
+                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
+                avgMatches.pop_front();
+                numPredictions++;
+                std::cout << "case 2" << std::endl;
+            }
+            // no current matches are close to previous match so create new filter
+            else// (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(numPredictions < maxNumPredictions))
+            {
+                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
+                center = avgMatches.front();
+                avgMatches.pop_front();
+                numPredictions = 0;
+                std::cout << "case 3" << std::endl;
+                std::cout << "new filter***********" << std::endl;
+            }
+
+//                std::cout << statePt << std::endl;
+//                std::cout << KF.statePre.at<float>(0) << "," << KF.statePre.at<float>(1) << std::endl;
+//            // if no current match is in the radius and the predicted value is not in the radius create a new filter
+//            if (abs(avgMatches.front().x - statePt.x) > radius && abs(avgMatches.front().y - statePt.y) > radius && !(abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius))
+//            {
+//                KF = createKalmanFilter(avgMatches.front().x, avgMatches.front().y);
+//                std::cout << "new filter***********" << std::endl;
+//                std::cout << KF.statePre.at<float>(0) << std::endl;
+//            }
+////            if (abs(KF.statePre.at<float>(0) - statePt.x) < radius && abs(KF.statePre.at<float>(1) - statePt.y) < radius)
+////            {
+////                center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
+////            }
+////            else
+////            {
+//                center = avgMatches.front();
+//                avgMatches.pop_front();
+//                numPredictions = 0;
+////            }
 
 
             // If a match was found draw it
@@ -262,8 +270,7 @@ int main(int argc, char *argv[])
         // Predict position based on last prediction, don't do this more than maxNumPredictions times
         else if (numPredictions < maxNumPredictions)
         {
-            center.x = KF.statePre.at<float>(0);
-            center.y = KF.statePre.at<float>(1);
+            center = (cv::Point){(int)KF.statePre.at<float>(0),(int)KF.statePre.at<float>(1)};
             numPredictions++;
 
 //            int radius = 40;
