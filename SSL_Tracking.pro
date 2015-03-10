@@ -18,10 +18,12 @@ INCLUDEPATH += '/usr/local/cuda-6.5/include'\
         '/opt/AMDAPP/include'
 
 SOURCES += main.cpp\
-    search.cpp
+    search.cpp \
+    holdpoints.cpp
 
 HEADERS += \
-    search.h
+    search.h \
+    holdpoints.h
 
 OTHER_FILES += cl/findSSL.cl\
 

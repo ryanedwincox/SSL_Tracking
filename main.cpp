@@ -4,9 +4,10 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
-#include <stack>
+//#include <stack>
 
 #include "search.h"
+#include "holdpoints.h"
 #include "/opt/ros/groovy/include/opencv2/video/tracking.hpp"
 
 // declare local methods
@@ -55,6 +56,11 @@ int main(int argc, char *argv[])
     // Create kalman filter
     cv::KalmanFilter KF = createKalmanFilter(0,0);
     cv::Point statePt;
+
+    // Create holdPoint filters for each marker
+    HoldPoints h1;
+    HoldPoints h2;
+    HoldPoints h3;
 
     // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
@@ -135,21 +141,25 @@ int main(int argc, char *argv[])
         std::list<cv::Point> avgMatches2 = averageMatches(matches2);
         std::list<cv::Point> avgMatches3 = averageMatches(matches3);
 
+        h1.update(avgMatches1);
+        h2.update(avgMatches2);
+        h3.update(avgMatches3);
+
         // Draw targets over averaged matches
-        img = drawTargets(img, avgMatches1, cv::Scalar(0,255,255));
-        img = drawTargets(img, avgMatches2, cv::Scalar(0,255,0));
-        img = drawTargets(img, avgMatches3, cv::Scalar(0,0,255));
+        img = drawTargets(img, h1.heldMatches, cv::Scalar(0,255,255));
+        img = drawTargets(img, h2.heldMatches, cv::Scalar(0,255,0));
+        img = drawTargets(img, h3.heldMatches, cv::Scalar(0,0,255));
 
-        // run kalman filter
-        statePt = runKalmanFilter(KF, statePt, avgMatches1);
+//        // run kalman filter
+//        statePt = runKalmanFilter(KF, statePt, avgMatches1);
 
-        // draw blue cross at kalman filter estimation if there is a valid location
-        if (statePt != (cv::Point){-1,-1})
-        {
-            int l = 10; //radius of cross
-            cv::line(img, (cv::Point){statePt.x-l,statePt.y}, (cv::Point){statePt.x+l,statePt.y}, cv::Scalar(255,0,0), 2);
-            cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
-        }
+//        // draw blue cross at kalman filter estimation if there is a valid location
+//        if (statePt != (cv::Point){-1,-1})
+//        {
+//            int l = 10; //radius of cross
+//            cv::line(img, (cv::Point){statePt.x-l,statePt.y}, (cv::Point){statePt.x+l,statePt.y}, cv::Scalar(255,0,0), 2);
+//            cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
+//        }
 
 //        // newImage is passed into the next filter
 //        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer1);
@@ -168,25 +178,7 @@ int main(int argc, char *argv[])
     }
 }
 
-cv::KalmanFilter createKalmanFilter(int x, int y)
-{
-    // Create kalman filter
-    cv::KalmanFilter KF(4, 2, 0);
-    KF.transitionMatrix = *(cv::Mat_<float>(4, 4) << 1,0,1,0,   0,1,0,1,  0,0,1,0,  0,0,0,1);
-//    cv::Mat_<float> measurement(2,1); measurement.setTo(cv::Scalar(0));
 
-    // Initialize kalman filter
-    KF.statePre.at<float>(0) = x;
-    KF.statePre.at<float>(1) = y;
-    KF.statePre.at<float>(2) = 0;
-    KF.statePre.at<float>(3) = 0;
-    setIdentity(KF.measurementMatrix);
-    setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-4));  // lower values mean more prediction
-    setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-3));  // lower values tighten on found points
-    setIdentity(KF.errorCovPost, cv::Scalar::all(.1));
-
-    return KF;
-}
 
 std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz)
 {
@@ -274,6 +266,26 @@ cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar col
         cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, color, 2);
     }
     return img;
+}
+
+cv::KalmanFilter createKalmanFilter(int x, int y)
+{
+    // Create kalman filter
+    cv::KalmanFilter KF(4, 2, 0);
+    KF.transitionMatrix = *(cv::Mat_<float>(4, 4) << 1,0,1,0,   0,1,0,1,  0,0,1,0,  0,0,0,1);
+//    cv::Mat_<float> measurement(2,1); measurement.setTo(cv::Scalar(0));
+
+    // Initialize kalman filter
+    KF.statePre.at<float>(0) = x;
+    KF.statePre.at<float>(1) = y;
+    KF.statePre.at<float>(2) = 0;
+    KF.statePre.at<float>(3) = 0;
+    setIdentity(KF.measurementMatrix);
+    setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-4));  // lower values mean more prediction
+    setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-3));  // lower values tighten on found points
+    setIdentity(KF.errorCovPost, cv::Scalar::all(.1));
+
+    return KF;
 }
 
 cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches)
