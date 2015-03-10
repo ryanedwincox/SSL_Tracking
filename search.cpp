@@ -59,7 +59,7 @@ search::search()
     }
 
     // get device count
-    err = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceCount);
+    err = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceCount); // change GPU to CPU for CPU comparison
     if (VERBOSE)
     {
         cout << "device count error: " << err << endl;
@@ -67,7 +67,7 @@ search::search()
 
     // get devices
     devices = new cl_device_id[deviceCount];
-    err = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, deviceCount, devices, NULL);
+    err = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, deviceCount, devices, NULL); // change GPU to CPU for CPU comparison
     if (VERBOSE)
     {
         cout << "device ID error: " << err << endl;

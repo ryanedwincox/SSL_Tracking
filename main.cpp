@@ -13,7 +13,7 @@
 cv::KalmanFilter createKalmanFilter(int x, int y);
 std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz);
 std::list<cv::Point> averageMatches(std::list<cv::Point> matches);
-cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches);
+cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color);
 cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches);
 
 int main(int argc, char *argv[])
@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     //Create video capture object
     int cameraNum = 0;
     const char* filename = "/home/pierre/Documents/SSL_Tracking/images/OrcusPortageBayMarker.mp4";
-    cv::VideoCapture cap(filename);
+    cv::VideoCapture cap(cameraNum);
     if(!cap.isOpened())  // check if we succeeded
     {
         std::cout << "camera not found" << std::endl;
@@ -37,10 +37,20 @@ int main(int argc, char *argv[])
     // Initialize OpenCL
     search s1;
     search s2;
+    search s3;
+    search s4;
+    search s5;
+    search s6;
     cl_int win = 40;
-    cl_double p = 0.5;
-    s1.buildProgram(findSSLClPath, win, p);
-    s2.buildProgram(findSSLClPath, win, p);
+    cl_double p1 = 0.4;
+    cl_double p2 = 0.5;
+    cl_double p3 = 0.6;
+    s1.buildProgram(findSSLClPath, win, p1);
+    s2.buildProgram(findSSLClPath, win, p1);
+    s3.buildProgram(findSSLClPath, win, p2);
+    s4.buildProgram(findSSLClPath, win, p2);
+    s5.buildProgram(findSSLClPath, win, p3);
+    s6.buildProgram(findSSLClPath, win, p3);
 
     // Create kalman filter
     cv::KalmanFilter KF = createKalmanFilter(0,0);
@@ -80,31 +90,58 @@ int main(int argc, char *argv[])
         {
             s1.setImage(imgBin);
             s2.setImage(imgBinVert);
+            s3.setImage(imgBin);
+            s4.setImage(imgBinVert);
+            s5.setImage(imgBin);
+            s6.setImage(imgBinVert);
             firstTime = false;
         }
 
         // Run OpenCV kernel to find markers
         s1.runProgram(imgBin);
         s2.runProgram(imgBinVert);
+        s3.runProgram(imgBin);
+        s4.runProgram(imgBinVert);
+        s5.runProgram(imgBin);
+        s6.runProgram(imgBinVert);
         // newDataPointer is used to display image
-        unsigned char* newDataPointer = (unsigned char*) s1.readOutput();
-        unsigned char* newDataPointer2 = (unsigned char*) s1.readOutput();
-        int matchIndex = s1.readMatchesIndexOutput();
+//        unsigned char* newDataPointer1 = (unsigned char*) s1.readOutput();
+//        unsigned char* newDataPointer2 = (unsigned char*) s2.readOutput();
+//        unsigned char* newDataPointer3 = (unsigned char*) s3.readOutput();
+//        unsigned char* newDataPointer4 = (unsigned char*) s4.readOutput();
+//        unsigned char* newDataPointer5 = (unsigned char*) s5.readOutput();
+//        unsigned char* newDataPointer6 = (unsigned char*) s6.readOutput();
+        int matchIndex1 = s1.readMatchesIndexOutput();
         int matchIndex2 = s2.readMatchesIndexOutput();
+        int matchIndex3 = s3.readMatchesIndexOutput();
+        int matchIndex4 = s4.readMatchesIndexOutput();
+        int matchIndex5 = s5.readMatchesIndexOutput();
+        int matchIndex6 = s6.readMatchesIndexOutput();
+
 
         // read matches from kernel
-        std::list< cv::Point > matches;
-        matches = readMatches(s1, matches, matchIndex, true);
-        matches = readMatches(s2, matches, matchIndex2, false);
+        std::list< cv::Point > matches1;
+        std::list< cv::Point > matches2;
+        std::list< cv::Point > matches3;
+        matches1 = readMatches(s1, matches1, matchIndex1, true);
+        matches1 = readMatches(s2, matches1, matchIndex2, false);
+        matches2 = readMatches(s3, matches2, matchIndex3, true);
+        matches2 = readMatches(s4, matches2, matchIndex4, false);
+        matches3 = readMatches(s5, matches3, matchIndex5, true);
+        matches3 = readMatches(s6, matches3, matchIndex6, false);
 
         // Average clusters
-        std::list<cv::Point> avgMatches = averageMatches(matches);
+        std::list<cv::Point> avgMatches1 = averageMatches(matches1);
+        std::list<cv::Point> avgMatches2 = averageMatches(matches2);
+        std::list<cv::Point> avgMatches3 = averageMatches(matches3);
 
         // Draw targets over averaged matches
-        img = drawTargets(img, avgMatches);
+        img = drawTargets(img, avgMatches1, cv::Scalar(0,255,255));
+        img = drawTargets(img, avgMatches2, cv::Scalar(0,255,0));
+        img = drawTargets(img, avgMatches3, cv::Scalar(0,0,255));
 
         // run kalman filter
-        statePt = runKalmanFilter(KF, statePt, avgMatches);
+        statePt = runKalmanFilter(KF, statePt, avgMatches1);
 
         // draw blue cross at kalman filter estimation if there is a valid location
         if (statePt != (cv::Point){-1,-1})
@@ -114,11 +151,11 @@ int main(int argc, char *argv[])
             cv::line(img, (cv::Point){statePt.x,statePt.y-l}, (cv::Point){statePt.x,statePt.y+l}, cv::Scalar(255,0,0), 2);
         }
 
-        // newImage is passed into the next filter
-        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer2);
+//        // newImage is passed into the next filter
+//        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer1);
 
-        // Display images
-        cv::imshow("New Image", newImage);
+//        // Display images
+//        cv::imshow("New Image", newImage);
 
 //        cv::imshow("Binary Image", imgBin);
 
@@ -213,7 +250,7 @@ std::list<cv::Point> averageMatches(std::list<cv::Point> matches)
         }
 
         // only count matches if there are several in a cluster
-        int minClusterSize = 7;
+        int minClusterSize = 15;
         if (count > minClusterSize)
         {
             cv::Point avgMatch (xsum/count, ysum/count);
@@ -223,7 +260,7 @@ std::list<cv::Point> averageMatches(std::list<cv::Point> matches)
     return avgMatches;
 }
 
-cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches)
+cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color)
 {
     // Draw red taget over averaged matches
     for (int i = 0; i < avgMatches.size(); i++)
@@ -233,8 +270,8 @@ cv::Mat drawTargets(cv::Mat img, std::list<cv::Point> avgMatches)
 //            std::cout << center << std::endl;
         avgMatches.pop_front();
 
-        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, cv::Scalar(0,0,255), 2);
-        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, cv::Scalar(0,0,255), 2);
+        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, color, 2);
+        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, color, 2);
     }
     return img;
 }

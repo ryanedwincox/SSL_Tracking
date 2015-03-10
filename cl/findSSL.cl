@@ -59,7 +59,7 @@ __kernel void filter_kernel(
         double m2 = (double) (sumMismatch2 - sumMatch2) / win; // matching function value
 
 
-        double thresh = 0.55;
+        double thresh = 0.6;
         if (m1 > thresh)
         {
             newImg[globalPos] = m1 * 255;
