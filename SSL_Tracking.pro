@@ -19,11 +19,11 @@ INCLUDEPATH += '/usr/local/cuda-6.5/include'\
 
 SOURCES += main.cpp\
     search.cpp \
-    holdpoints.cpp
+    holdpoint.cpp
 
 HEADERS += \
     search.h \
-    holdpoints.h
+    holdpoint.h
 
 OTHER_FILES += cl/findSSL.cl\
 

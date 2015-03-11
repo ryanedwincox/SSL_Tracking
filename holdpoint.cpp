@@ -1,13 +1,13 @@
-#include "holdpoints.h"
+#include "holdpoint.h"
 
-HoldPoints::HoldPoints()
+HoldPoint::HoldPoint()
 {
     count = 0;
     timeout = 10;
     checked = false;
 }
 
-void HoldPoints::update(cv::Point avgMatch)
+void HoldPoint::update(cv::Point avgMatch)
 {
     heldMatch = (cv::Point)NULL;
     if (avgMatch != (cv::Point)NULL)
@@ -21,13 +21,9 @@ void HoldPoints::update(cv::Point avgMatch)
         count++;
         heldMatch = prevPoint;
     }
-    else
-    {
-        std::cout << "debug2" <<  std::endl;
-    }
 }
 
-HoldPoints::~HoldPoints()
+HoldPoint::~HoldPoint()
 {
 }
 

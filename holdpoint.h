@@ -1,5 +1,5 @@
-#ifndef HOLDPOINTS_H
-#define HOLDPOINTS_H
+#ifndef HOLDPOINT_H
+#define HOLDPOINT_H
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -7,11 +7,11 @@
 #include <list>
 #include <iostream>
 
-class HoldPoints
+class HoldPoint
 {
 public:
-    HoldPoints();
-    ~HoldPoints();
+    HoldPoint();
+    ~HoldPoint();
     void update(cv::Point avgMatches);
 
     int count;
@@ -21,4 +21,4 @@ public:
     cv::Point heldMatch;
 };
 
-#endif // HOLDPOINTS_H
+#endif // HOLDPOINT_H
