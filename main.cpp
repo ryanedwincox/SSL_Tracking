@@ -11,11 +11,11 @@
 #include "/opt/ros/groovy/include/opencv2/video/tracking.hpp"
 
 // declare local methods
-cv::KalmanFilter createKalmanFilter(int x, int y);
 std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz);
 std::list<cv::Point> averageMatches(std::list<cv::Point> matches);
 cv::Mat drawTargets(cv::Mat img, std::vector<HoldPoint> H, cv::Scalar color);
-cv::Mat drawTargetsList(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color);
+std::vector<HoldPoint> holdPoints(std::vector<HoldPoint> H, std::list<cv::Point> avgMatches);
+cv::KalmanFilter createKalmanFilter(int x, int y);
 cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches);
 
 int main(int argc, char *argv[])
@@ -58,12 +58,10 @@ int main(int argc, char *argv[])
     cv::KalmanFilter KF = createKalmanFilter(0,0);
     cv::Point statePt;
 
-    // Create holdPoint filters for each marker
-    HoldPoint h1;
-    HoldPoint h2;
-    HoldPoint h3;
-
-    std::vector<HoldPoint> H;
+    // Create vector of holdPoint filters for each marker
+    std::vector<HoldPoint> H1;
+    std::vector<HoldPoint> H2;
+    std::vector<HoldPoint> H3;
 
     // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
@@ -144,62 +142,17 @@ int main(int argc, char *argv[])
         std::list<cv::Point> avgMatches2 = averageMatches(matches2);
         std::list<cv::Point> avgMatches3 = averageMatches(matches3);
 
-//        h1.update(avgMatches1.front());
-//        h2.update(avgMatches2.front());
-//        h3.update(avgMatches3.front());
-
-        while (avgMatches2.size() > 0)
-        {
-            bool matched = false;
-            int radius = 30;
-            // loops through all current matches
-            for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
-            {
-                // update hold point if it is near a new match
-                if (abs(avgMatches2.front().x - it->prevPoint.x) < radius && abs(avgMatches2.front().y - it->prevPoint.y) < radius)
-                {
-                    it->update(avgMatches2.front());
-                    matched = true;
-                    it->checked = true;
-                }
-            }
-
-            // create new HoldPoint object if a avgMatch does not match any already existing
-            if (!matched)
-            {
-                HoldPoint h;
-                h.update(avgMatches2.front());
-                H.push_back(h);
-            }
-            avgMatches2.pop_front();
-        }
-
-        for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
-        {
-            if (it->heldMatch == (cv::Point)NULL)
-            {
-                H.erase(it);
-                break; // because iteration length has now changed
-            }
-
-            // calls update on all holdPoints that didn't match any new matches
-            if (!it->checked)
-            {
-                it->update((cv::Point)NULL);
-            }
-            else // make sure all holdPoints start the next loop with checked as false
-            {
-                it->checked = false;
-            }
-        }
+        H1 = holdPoints(H1, avgMatches1);
+        H2 = holdPoints(H2, avgMatches2);
+        H3 = holdPoints(H3, avgMatches3);
 
         // Draw targets over averaged matches
-        img = drawTargets(img, H, cv::Scalar(0,255,255));
-//        img = drawTargetsList(img, h1.heldMatch, cv::Scalar(0,255,255));
-//        img = drawTargetsList(img, h2.heldMatch, cv::Scalar(0,255,0));
-//        img = drawTargetsList(img, h3.heldMatch, cv::Scalar(0,0,255));
+        img = drawTargets(img, H1, cv::Scalar(0,0,255));
+        img = drawTargets(img, H2, cv::Scalar(0,255,255));
+        img = drawTargets(img, H3, cv::Scalar(0,255,0));
 
-//        // run kalman filter
+        // run kalman filter
+        /*
 //        statePt = runKalmanFilter(KF, statePt, avgMatches1);
 
 //        // draw blue cross at kalman filter estimation if there is a valid location
@@ -212,8 +165,9 @@ int main(int argc, char *argv[])
 
 //        // newImage is passed into the next filter
 //        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer1);
+*/
 
-//        // Display images
+        //        // Display images
 //        cv::imshow("New Image", newImage);
 
 //        cv::imshow("Binary Image", imgBin);
@@ -315,20 +269,53 @@ cv::Mat drawTargets(cv::Mat img, std::vector<HoldPoint> H, cv::Scalar color)
     return img;
 }
 
-cv::Mat drawTargetsList(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color)
+std::vector<HoldPoint> holdPoints(std::vector<HoldPoint> H, std::list<cv::Point> avgMatches)
 {
-    // Draw red taget over averaged matches
-    for (int i = 0; i < avgMatches.size(); i++)
+    while (avgMatches.size() > 0)
     {
-        int l = 10; //radius of cross
-        cv::Point center = avgMatches.front();
-//            std::cout << center << std::endl;
-        avgMatches.pop_front();
+        bool matched = false;
+        int radius = 30;
+        // loops through all current matches
+        for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+        {
+            // update hold point if it is near a new match
+            if (abs(avgMatches.front().x - it->prevPoint.x) < radius && abs(avgMatches.front().y - it->prevPoint.y) < radius)
+            {
+                it->update(avgMatches.front());
+                matched = true;
+                it->checked = true;
+            }
+        }
 
-        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, color, 2);
-        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, color, 2);
+        // create new HoldPoint object if a avgMatch does not match any already existing
+        if (!matched)
+        {
+            HoldPoint h;
+            h.update(avgMatches.front());
+            H.push_back(h);
+        }
+        avgMatches.pop_front();
     }
-    return img;
+
+    for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+    {
+        if (it->heldMatch == (cv::Point)NULL)
+        {
+            H.erase(it);
+            break; // because iteration length has now changed
+        }
+
+        // calls update on all holdPoints that didn't match any new matches
+        if (!it->checked)
+        {
+            it->update((cv::Point)NULL);
+        }
+        else // make sure all holdPoints start the next loop with checked as false
+        {
+            it->checked = false;
+        }
+    }
+    return H;
 }
 
 cv::KalmanFilter createKalmanFilter(int x, int y)
