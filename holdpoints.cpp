@@ -4,7 +4,7 @@ HoldPoints::HoldPoints()
 {
     count = 0;
     timeout = 10;
-    del = false;
+    checked = false;
 }
 
 void HoldPoints::update(cv::Point avgMatch)
@@ -23,7 +23,7 @@ void HoldPoints::update(cv::Point avgMatch)
     }
     else
     {
-        del = true;
+        std::cout << "debug2" <<  std::endl;
     }
 }
 

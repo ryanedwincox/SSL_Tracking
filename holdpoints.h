@@ -16,7 +16,7 @@ public:
 
     int count;
     int timeout;
-    bool del;
+    bool checked;
     cv::Point prevPoint;
     cv::Point heldMatch;
 };

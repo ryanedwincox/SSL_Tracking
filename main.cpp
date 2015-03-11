@@ -15,6 +15,7 @@ cv::KalmanFilter createKalmanFilter(int x, int y);
 std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz);
 std::list<cv::Point> averageMatches(std::list<cv::Point> matches);
 cv::Mat drawTargets(cv::Mat img, std::vector<HoldPoints> H, cv::Scalar color);
+cv::Mat drawTargetsList(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color);
 cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches);
 
 int main(int argc, char *argv[])
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
     HoldPoints h2;
     HoldPoints h3;
 
-    std::vector<HoldPoints> H;
+//    std::vector<HoldPoints> H;
 
     // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
@@ -143,41 +144,58 @@ int main(int argc, char *argv[])
         std::list<cv::Point> avgMatches2 = averageMatches(matches2);
         std::list<cv::Point> avgMatches3 = averageMatches(matches3);
 
-//        h1.update(avgMatches1);
-//        h2.update(avgMatches2);
-//        h3.update(avgMatches3);
+        h1.update(avgMatches1.front());
+        h2.update(avgMatches2.front());
+        h3.update(avgMatches3.front());
 
-        while (avgMatches1.size() > 0)
-        {
-            bool matched = false;
-            int radius = 30;
-            for (std::vector<HoldPoints>::iterator it = H.begin(); it != H.end(); it++)
-            {
-                if (abs(avgMatches1.front().x - it->prevPoint.x) < radius && abs(avgMatches1.front().y - it->prevPoint.y) < radius)
-                {
-                    it->update(avgMatches1.front());
-                    matched = true;
-                }
-                if (it->del)
-                {
-                    H.erase(it);
-                }
-            }
-            // create new HoldPoint object if a avgMatch does not match any already existing
-            if (!matched)
-            {
-                HoldPoints h;
-                h.update(avgMatches1.front());
-                H.push_back(h);
-            }
-            avgMatches1.pop_front();
-        }
+
+//        while (avgMatches2.size() > 0)
+//        {
+//            bool matched = false;
+//            int radius = 30;
+//            // loops through all current matches
+//            for (std::vector<HoldPoints>::iterator it = H.begin(); it != H.end(); it++)
+//            {
+//                // update hold point if it is near a new match
+//                if (abs(avgMatches2.front().x - it->prevPoint.x) < radius && abs(avgMatches2.front().y - it->prevPoint.y) < radius)
+//                {
+//                    it->update(avgMatches2.front());
+//                    matched = true;
+//                    it->checked = true;
+//                }
+//            }
+
+//            // create new HoldPoint object if a avgMatch does not match any already existing
+//            if (!matched)
+//            {
+//                HoldPoints h;
+//                h.update(avgMatches2.front());
+//                H.push_back(h);
+//            }
+//            std::cout << "Size" << H.size() << std::endl;
+//            avgMatches2.pop_front();
+//        }
+
+//        for (std::vector<HoldPoints>::iterator it = H.begin(); it != H.end(); it++)
+//        {
+//            std::cout << "size" << H.size() << std::endl;
+//            if (!it->checked)
+//            {
+//                it->update((cv::Point)NULL);
+//            }
+////            if (it->heldMatch == (cv::Point)NULL)
+////            {
+////                std::cout << "erase" << std::endl;
+////                H.erase(it);
+////                std::cout << H.size() << std::endl;
+////            }
+//        }
 
         // Draw targets over averaged matches
-        // TODO change the input parameter to type H a vetor of hold points
-        img = drawTargets(img, H, cv::Scalar(0,255,255));
-//        img = drawTargets(img, h2.heldMatches, cv::Scalar(0,255,0));
-//        img = drawTargets(img, h3.heldMatches, cv::Scalar(0,0,255));
+//        img = drawTargets(img, H, cv::Scalar(0,255,255));
+        img = drawTargetsList(img, h1.heldMatch, cv::Scalar(0,255,255));
+        img = drawTargetsList(img, h2.heldMatch, cv::Scalar(0,255,0));
+        img = drawTargetsList(img, h3.heldMatch, cv::Scalar(0,0,255));
 
 //        // run kalman filter
 //        statePt = runKalmanFilter(KF, statePt, avgMatches1);
@@ -288,6 +306,22 @@ cv::Mat drawTargets(cv::Mat img, std::vector<HoldPoints> H, cv::Scalar color)
     {
         int l = 10; //radius of cross
         cv::Point center = it->heldMatch;
+
+        cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, color, 2);
+        cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, color, 2);
+    }
+    return img;
+}
+
+cv::Mat drawTargetsList(cv::Mat img, std::list<cv::Point> avgMatches, cv::Scalar color)
+{
+    // Draw red taget over averaged matches
+    for (int i = 0; i < avgMatches.size(); i++)
+    {
+        int l = 10; //radius of cross
+        cv::Point center = avgMatches.front();
+//            std::cout << center << std::endl;
+        avgMatches.pop_front();
 
         cv::line(img, (cv::Point){center.x-l,center.y}, (cv::Point){center.x+l,center.y}, color, 2);
         cv::line(img, (cv::Point){center.x,center.y-l}, (cv::Point){center.x,center.y+l}, color, 2);
