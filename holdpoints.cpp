@@ -4,21 +4,30 @@ HoldPoints::HoldPoints()
 {
     count = 0;
     timeout = 10;
+    del = false;
 }
 
-void HoldPoints::update(std::list<cv::Point> avgMatches)
+void HoldPoints::update(cv::Point avgMatch)
 {
-    heldMatches.clear();
-    if (avgMatches.size() > 0)
+    heldMatch = (cv::Point)NULL;
+    if (avgMatch != (cv::Point)NULL)
     {
-        prevPoint = avgMatches.front();
-        heldMatches.push_front(avgMatches.front());
+        prevPoint = avgMatch;
+        heldMatch = avgMatch;
         count = 0;
     }
     else if (count < timeout)
     {
         count++;
-        heldMatches.push_front(prevPoint);
+        heldMatch = prevPoint;
     }
+    else
+    {
+        del = true;
+    }
+}
+
+HoldPoints::~HoldPoints()
+{
 }
 

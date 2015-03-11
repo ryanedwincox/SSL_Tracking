@@ -5,17 +5,20 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <list>
+#include <iostream>
 
 class HoldPoints
 {
 public:
     HoldPoints();
-    void update(std::list<cv::Point> avgMatches);
+    ~HoldPoints();
+    void update(cv::Point avgMatches);
 
     int count;
     int timeout;
+    bool del;
     cv::Point prevPoint;
-    std::list <cv::Point> heldMatches;
+    cv::Point heldMatch;
 };
 
 #endif // HOLDPOINTS_H
