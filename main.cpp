@@ -39,29 +39,17 @@ int main(int argc, char *argv[])
     // Initialize OpenCL
     search s1;
     search s2;
-    search s3;
-    search s4;
-    search s5;
-    search s6;
     cl_int win = 40;
-    cl_double p1 = 0.4;
-    cl_double p2 = 0.5;
-    cl_double p3 = 0.6;
-    s1.buildProgram(findSSLClPath, win, p1);
-    s2.buildProgram(findSSLClPath, win, p1);
-    s3.buildProgram(findSSLClPath, win, p2);
-    s4.buildProgram(findSSLClPath, win, p2);
-    s5.buildProgram(findSSLClPath, win, p3);
-    s6.buildProgram(findSSLClPath, win, p3);
+    cl_double p = 0.5;
+    s1.buildProgram(findSSLClPath, win, p);
+    s2.buildProgram(findSSLClPath, win, p);
 
-    // Create kalman filter
-    cv::KalmanFilter KF = createKalmanFilter(0,0);
-    cv::Point statePt;
+//    // Create kalman filter
+//    cv::KalmanFilter KF = createKalmanFilter(0,0);
+//    cv::Point statePt;
 
     // Create vector of holdPoint filters for each marker
-    std::vector<HoldPoint> H1;
-    std::vector<HoldPoint> H2;
-    std::vector<HoldPoint> H3;
+    std::vector<HoldPoint> H;
 
     // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
@@ -97,59 +85,31 @@ int main(int argc, char *argv[])
         {
             s1.setImage(imgBin);
             s2.setImage(imgBinVert);
-            s3.setImage(imgBin);
-            s4.setImage(imgBinVert);
-            s5.setImage(imgBin);
-            s6.setImage(imgBinVert);
             firstTime = false;
         }
 
         // Run OpenCV kernel to find markers
         s1.runProgram(imgBin);
         s2.runProgram(imgBinVert);
-        s3.runProgram(imgBin);
-        s4.runProgram(imgBinVert);
-        s5.runProgram(imgBin);
-        s6.runProgram(imgBinVert);
         // newDataPointer is used to display image
 //        unsigned char* newDataPointer1 = (unsigned char*) s1.readOutput();
 //        unsigned char* newDataPointer2 = (unsigned char*) s2.readOutput();
-//        unsigned char* newDataPointer3 = (unsigned char*) s3.readOutput();
-//        unsigned char* newDataPointer4 = (unsigned char*) s4.readOutput();
-//        unsigned char* newDataPointer5 = (unsigned char*) s5.readOutput();
-//        unsigned char* newDataPointer6 = (unsigned char*) s6.readOutput();
         int matchIndex1 = s1.readMatchesIndexOutput();
         int matchIndex2 = s2.readMatchesIndexOutput();
-        int matchIndex3 = s3.readMatchesIndexOutput();
-        int matchIndex4 = s4.readMatchesIndexOutput();
-        int matchIndex5 = s5.readMatchesIndexOutput();
-        int matchIndex6 = s6.readMatchesIndexOutput();
 
 
         // read matches from kernel
         std::list< cv::Point > matches1;
-        std::list< cv::Point > matches2;
-        std::list< cv::Point > matches3;
         matches1 = readMatches(s1, matches1, matchIndex1, true);
         matches1 = readMatches(s2, matches1, matchIndex2, false);
-        matches2 = readMatches(s3, matches2, matchIndex3, true);
-        matches2 = readMatches(s4, matches2, matchIndex4, false);
-        matches3 = readMatches(s5, matches3, matchIndex5, true);
-        matches3 = readMatches(s6, matches3, matchIndex6, false);
 
         // Average clusters
         std::list<cv::Point> avgMatches1 = averageMatches(matches1);
-        std::list<cv::Point> avgMatches2 = averageMatches(matches2);
-        std::list<cv::Point> avgMatches3 = averageMatches(matches3);
 
-        H1 = holdPoints(H1, avgMatches1);
-        H2 = holdPoints(H2, avgMatches2);
-        H3 = holdPoints(H3, avgMatches3);
+        H = holdPoints(H, avgMatches1);
 
         // Draw targets over averaged matches
-        img = drawTargets(img, H1, cv::Scalar(0,0,255));
-        img = drawTargets(img, H2, cv::Scalar(0,255,255));
-        img = drawTargets(img, H3, cv::Scalar(0,255,0));
+        img = drawTargets(img, H, cv::Scalar(0,0,255));
 
         // run kalman filter
         /*
@@ -245,7 +205,7 @@ std::list<cv::Point> averageMatches(std::list<cv::Point> matches)
         }
 
         // only count matches if there are several in a cluster
-        int minClusterSize = 15;
+        int minClusterSize = 25;
         if (count > minClusterSize)
         {
             cv::Point avgMatch (xsum/count, ysum/count);
