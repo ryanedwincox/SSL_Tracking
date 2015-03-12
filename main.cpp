@@ -18,6 +18,8 @@ cv::Mat drawTargets(cv::Mat img, std::vector<HoldPoint> H, cv::Scalar color);
 std::vector<HoldPoint> holdPoints(std::vector<HoldPoint> H, std::list<cv::Point> avgMatches);
 cv::KalmanFilter createKalmanFilter(int x, int y);
 cv::Point runKalmanFilter(cv::KalmanFilter KF, cv::Point statePt, std::list<cv::Point> avgMatches);
+std::list<HoldPoint> mergesort(std::list<HoldPoint> H);
+std::list<HoldPoint> merge(std::list<HoldPoint> left, std::list<HoldPoint> right);
 
 int main(int argc, char *argv[])
 {
@@ -151,25 +153,44 @@ int main(int argc, char *argv[])
         // Define marker points in world coordinates (3D)
         int numMarkers = 4;
         cv::Mat worldCoord(numMarkers,1,cv::DataType<cv::Point3f>::type);
+//        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
+//        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
+//        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
+//        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){1,1,0};
         worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
-        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
-        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
-        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){1,1,0};
+        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){3.5,2,0};
+        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,4,0};
+        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){3.5,6,0};
 
-        // Markers found by camera (2D)
+        // Markers found by camera (2D) ordered from bottom to top
         // take three matches from H
         cv::Mat imageCoord(numMarkers,1,cv::DataType<cv::Point2f>::type);
-        if (H.size() >= numMarkers)
+
+        // copy H vector into a list for ordering
+        std::list<HoldPoint> HList;
+        for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
         {
-            int i = 0;
-            for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+            HList.push_back(*it);
+        }
+
+        // sort holdpoints
+        std::list<HoldPoint> sorted = mergesort(HList);
+
+        // print ordered matches
+        std::cout << "Ordered Matches" << std::endl;
+        int j = numMarkers;
+        for (std::list<HoldPoint>::iterator it = sorted.begin(); it != sorted.end(); it++)
+        {
+            j--;
+            std::cout << it->heldMatch << std::endl;
+            if (j >= 0)
             {
-                imageCoord.at<cv::Point2f>(i) = it->heldMatch;
-                i++;
-                if (i==numMarkers)
-                {
-                    break;
-                }
+                imageCoord.at<cv::Point2f>(j) = it->heldMatch;
+                if (j == 0) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,0), -1);
+                if (j == 1) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,255,0), -1);
+                if (j == 2) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,255), -1);
+                if (j == 3) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,0,0), -1);
+//                j++;
             }
         }
 
@@ -212,7 +233,7 @@ int main(int argc, char *argv[])
             cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
 //            std::cout << "projected points: "  << projectedPoints << std::endl;
 
-            bool valid = true;
+            bool valid = false;
 
             // undefined solution is any projected point is less than zero?
             for (int i = 0; i < projectedPoints.size(); i++)
@@ -220,6 +241,10 @@ int main(int argc, char *argv[])
                 if (projectedPoints[i].x < 0 || projectedPoints[i].x > w || projectedPoints[i].y < 0 || projectedPoints[i].y > h)
                 {
                     valid = false;
+                }
+                else
+                {
+                    valid = true;
                 }
             }
 
@@ -245,7 +270,69 @@ int main(int argc, char *argv[])
     }
 }
 
+std::list<HoldPoint> mergesort(std::list<HoldPoint> H)
+{
+    std::list<HoldPoint> left;
+    std::list<HoldPoint> right;
+    std::list<HoldPoint> result;
+    if (H.size() <= 1)
+    {
+        return H;
+    }
+    else
+    {
+        int middle = H.size() / 2;
+        int i = 0;
+        for (std::list<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+        {
+            if (i < middle)
+            {
+                left.push_back(*it);
+            }
+            else
+            {
+                right.push_back(*it);
+            }
+            i++;
+        }
+    }
 
+    left = mergesort(left);
+    right = mergesort(right);
+    result = merge(left, right);
+
+    return result;
+}
+
+std::list<HoldPoint> merge(std::list<HoldPoint> left, std::list<HoldPoint> right)
+{
+    std::list<HoldPoint> result;
+
+    while (left.size() > 0 && right.size() > 0)
+    {
+        if (left.front().heldMatch.y <= right.front().heldMatch.y)
+        {
+            result.push_back(left.front());
+            left.pop_front();
+        }
+        else
+        {
+            result.push_back(right.front());
+            right.pop_front();
+        }
+    }
+    while (left.size() > 0)
+    {
+        result.push_back(left.front());
+        left.pop_front();
+    }
+    while (right.size() > 0)
+    {
+        result.push_back(right.front());
+        right.pop_front();
+    }
+    return result;
+}
 
 std::list<cv::Point> readMatches(search s, std::list<cv::Point> matches, int matchIndex, bool horz)
 {
