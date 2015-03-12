@@ -177,12 +177,12 @@ int main(int argc, char *argv[])
         std::list<HoldPoint> sorted = mergesort(HList);
 
         // print ordered matches
-        std::cout << "Ordered Matches" << std::endl;
+//        std::cout << "Ordered Matches" << std::endl;
         int j = numMarkers;
         for (std::list<HoldPoint>::iterator it = sorted.begin(); it != sorted.end(); it++)
         {
             j--;
-            std::cout << it->heldMatch << std::endl;
+//            std::cout << it->heldMatch << std::endl;
             if (j >= 0)
             {
                 imageCoord.at<cv::Point2f>(j) = it->heldMatch;
@@ -231,14 +231,14 @@ int main(int argc, char *argv[])
 
             std::vector<cv::Point2f> projectedPoints;
             cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
-//            std::cout << "projected points: "  << projectedPoints << std::endl;
+            std::cout << "projected points: "  << projectedPoints << std::endl;
 
             bool valid = false;
 
-            // undefined solution is any projected point is less than zero?
-            for (int i = 0; i < projectedPoints.size(); i++)
+            // undefined solution if any projected point is less than zero?
+            for (std::vector<cv::Point2f>::iterator it = projectedPoints.begin(); it != projectedPoints.end(); it++)
             {
-                if (projectedPoints[i].x < 0 || projectedPoints[i].x > w || projectedPoints[i].y < 0 || projectedPoints[i].y > h)
+                if (it->x < 1 || it->x > w || it->y < 1 || it->y > h)
                 {
                     valid = false;
                 }
