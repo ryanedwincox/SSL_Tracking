@@ -189,17 +189,17 @@ int main(int argc, char *argv[])
 
 //            std::cout << "world Coord" << std::endl;
 //            std::cout << worldCoord << std::endl;
-            std::cout << "image Coord" << std::endl;
-            std::cout << imageCoord << std::endl;
+//            std::cout << "image Coord" << std::endl;
+//            std::cout << imageCoord << std::endl;
 
 //            cv::solvePnPRansac(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, minInliersCount, inliers, flags);
             cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec);
 
 
-            std::cout << "rvec" << std::endl;
-            std::cout << rvec << std::endl;
-            std::cout << "tvec" << std::endl;
-            std::cout << tvec << std::endl;
+//            std::cout << "rvec" << std::endl;
+//            std::cout << rvec << std::endl;
+//            std::cout << "tvec" << std::endl;
+//            std::cout << tvec << std::endl;
 
             // project axis
             cv::Mat axis(4,1,cv::DataType<cv::Point3f>::type);
@@ -210,11 +210,25 @@ int main(int argc, char *argv[])
 
             std::vector<cv::Point2f> projectedPoints;
             cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
-            std::cout << "axis: "  << axis << std::endl;
+//            std::cout << "projected points: "  << projectedPoints << std::endl;
 
-            cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
-            cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
-            cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
+            bool valid = true;
+
+            // undefined solution is any projected point is less than zero?
+            for (int i = 0; i < projectedPoints.size(); i++)
+            {
+                if (projectedPoints[i].x < 0 || projectedPoints[i].x > w || projectedPoints[i].y < 0 || projectedPoints[i].y > h)
+                {
+                    valid = false;
+                }
+            }
+
+            if (valid)
+            {
+                cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
+                cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
+                cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
+            }
         }
 
         //        // Display images
