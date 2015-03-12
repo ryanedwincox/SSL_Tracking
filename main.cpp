@@ -2,6 +2,7 @@
 #include <CL/cl.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include "opencv2/calib3d/calib3d.hpp"
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
 #include <vector>
@@ -126,6 +127,95 @@ int main(int argc, char *argv[])
 //        // newImage is passed into the next filter
 //        cv::Mat newImage = cv::Mat(cv::Size(w,h), CV_8UC1, newDataPointer1);
 */
+
+        // POSE ESTIMATION
+        // Camera matrices from camera calibration
+        cv::Mat cameraMatrix(3,3,cv::DataType<double>::type);
+        cameraMatrix.at<double>(0,0) = 927.85;
+        cameraMatrix.at<double>(0,1) = 0;
+        cameraMatrix.at<double>(0,2) = 385.35;
+        cameraMatrix.at<double>(1,0) = 0;
+        cameraMatrix.at<double>(1,1) = 813.87;
+        cameraMatrix.at<double>(1,2) = 4.322;
+        cameraMatrix.at<double>(2,0) = 0;
+        cameraMatrix.at<double>(2,1) = 0;
+        cameraMatrix.at<double>(2,2) = 1;
+
+        cv::Mat distCoeffs(5,1,cv::DataType<double>::type);
+        distCoeffs.at<double>(0) = 0.203;
+        distCoeffs.at<double>(1) = -0.0713;
+        distCoeffs.at<double>(2) = -0.054324;
+        distCoeffs.at<double>(3) = 0.013143;
+        distCoeffs.at<double>(4) = 0.007245;
+
+        // Define marker points in world coordinates (3D)
+        int numMarkers = 4;
+        cv::Mat worldCoord(numMarkers,1,cv::DataType<cv::Point3f>::type);
+        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
+        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
+        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
+        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){1,1,0};
+
+        // Markers found by camera (2D)
+        // take three matches from H
+        cv::Mat imageCoord(numMarkers,1,cv::DataType<cv::Point2f>::type);
+        if (H.size() >= numMarkers)
+        {
+            int i = 0;
+            for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+            {
+                imageCoord.at<cv::Point2f>(i) = it->heldMatch;
+                i++;
+                if (i==numMarkers)
+                {
+                    break;
+                }
+            }
+        }
+
+        // create output arrays
+        cv::Mat rvec(3,1,cv::DataType<double>::type);
+        cv::Mat tvec(3,1,cv::DataType<double>::type);
+
+        // if there are 3 valid markers try to estimate position
+        if (H.size() >= numMarkers)
+        {
+//            bool useExtrinsicGuess = false;
+//            int iterationsCount = 100;
+//            float reprojectionError = 8.0;
+//            int minInliersCount = 100;
+//            cv::Mat inliers(0,1,cv::DataType<int>::type);
+//            int flags = cv::ITERATIVE;
+
+//            std::cout << "world Coord" << std::endl;
+//            std::cout << worldCoord << std::endl;
+            std::cout << "image Coord" << std::endl;
+            std::cout << imageCoord << std::endl;
+
+//            cv::solvePnPRansac(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, minInliersCount, inliers, flags);
+            cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec);
+
+
+            std::cout << "rvec" << std::endl;
+            std::cout << rvec << std::endl;
+            std::cout << "tvec" << std::endl;
+            std::cout << tvec << std::endl;
+
+            // project axis
+            cv::Mat axis(4,1,cv::DataType<cv::Point3f>::type);
+            worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
+            worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
+            worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
+            worldCoord.at<cv::Point3f>(3) = (cv::Point3f){0,0,1};
+
+            std::vector<cv::Point2f> projectedPoints;
+            cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
+            std::cout << "axis: "  << axis << std::endl;
+
+            cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
+            cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
+            cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
+        }
 
         //        // Display images
 //        cv::imshow("New Image", newImage);
