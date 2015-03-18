@@ -57,6 +57,9 @@ int main(int argc, char *argv[])
     // firstTime is used to insure the image buffers are only created once
     bool firstTime = true;
 
+    cv::Mat rvec(3,1,cv::DataType<double>::type);
+    cv::Mat tvec(3,1,cv::DataType<double>::type);
+
     while (cap.isOpened())
     {
         // Get new frame
@@ -109,6 +112,13 @@ int main(int argc, char *argv[])
         // Average clusters
         std::list<cv::Point> avgMatches1 = averageMatches(matches1);
 
+//        // Manually populate avgMatches for debugging
+//        std::list<cv::Point> avgMatches1;
+//        avgMatches1.push_back((cv::Point){100,100});
+//        avgMatches1.push_back((cv::Point){200,150});
+//        avgMatches1.push_back((cv::Point){100,250});
+//        avgMatches1.push_back((cv::Point){200,275});
+
         H = holdPoints(H, avgMatches1);
 
         // Draw targets over averaged matches
@@ -133,37 +143,38 @@ int main(int argc, char *argv[])
         // POSE ESTIMATION
         // Camera matrices from camera calibration
         cv::Mat cameraMatrix(3,3,cv::DataType<double>::type);
-        cameraMatrix.at<double>(0,0) = 927.85;
+        cameraMatrix.at<double>(0,0) = 644.50;
         cameraMatrix.at<double>(0,1) = 0;
-        cameraMatrix.at<double>(0,2) = 385.35;
+        cameraMatrix.at<double>(0,2) = 339.18;
         cameraMatrix.at<double>(1,0) = 0;
-        cameraMatrix.at<double>(1,1) = 813.87;
-        cameraMatrix.at<double>(1,2) = 4.322;
+        cameraMatrix.at<double>(1,1) = 600.9586;
+        cameraMatrix.at<double>(1,2) = 244.52;
         cameraMatrix.at<double>(2,0) = 0;
         cameraMatrix.at<double>(2,1) = 0;
         cameraMatrix.at<double>(2,2) = 1;
 
         cv::Mat distCoeffs(5,1,cv::DataType<double>::type);
-        distCoeffs.at<double>(0) = 0.203;
-        distCoeffs.at<double>(1) = -0.0713;
-        distCoeffs.at<double>(2) = -0.054324;
-        distCoeffs.at<double>(3) = 0.013143;
-        distCoeffs.at<double>(4) = 0.007245;
+        distCoeffs.at<double>(0) = 0.09386;
+        distCoeffs.at<double>(1) = 0.03747;
+        distCoeffs.at<double>(2) = 0.0026472;
+        distCoeffs.at<double>(3) = 0.00422;
+        distCoeffs.at<double>(4) = -0.4924;
 
         // Define marker points in world coordinates (3D)
         int numMarkers = 4;
         cv::Mat worldCoord(numMarkers,1,cv::DataType<cv::Point3f>::type);
-//        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
-//        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
-//        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
-//        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){1,1,0};
+        // quad markers
+//        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){0,0,0};
+//        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){1,0,0};
+//        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){0,1,0};
+//        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){1,1,0};
+        // skew markers
         worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
         worldCoord.at<cv::Point3f>(1) = (cv::Point3f){3.5,2,0};
         worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,4,0};
         worldCoord.at<cv::Point3f>(3) = (cv::Point3f){3.5,6,0};
 
-        // Markers found by camera (2D) ordered from bottom to top
-        // take three matches from H
+        // Will store  markers found by camera (2D) ordered from bottom to top
         cv::Mat imageCoord(numMarkers,1,cv::DataType<cv::Point2f>::type);
 
         // copy H vector into a list for ordering
@@ -188,34 +199,33 @@ int main(int argc, char *argv[])
                 imageCoord.at<cv::Point2f>(j) = it->heldMatch;
                 if (j == 0) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,0), -1);
                 if (j == 1) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,255,0), -1);
-                if (j == 2) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,255), -1);
+                if (j == 2) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,0,0), -1);
                 if (j == 3) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,0,0), -1);
 //                j++;
             }
         }
 
         // create output arrays
-        cv::Mat rvec(3,1,cv::DataType<double>::type);
-        cv::Mat tvec(3,1,cv::DataType<double>::type);
+//        cv::Mat rvec(3,1,cv::DataType<double>::type);
+//        cv::Mat tvec(3,1,cv::DataType<double>::type);
 
         // if there are 3 valid markers try to estimate position
         if (H.size() >= numMarkers)
         {
-//            bool useExtrinsicGuess = false;
-//            int iterationsCount = 100;
-//            float reprojectionError = 8.0;
-//            int minInliersCount = 100;
-//            cv::Mat inliers(0,1,cv::DataType<int>::type);
-//            int flags = cv::ITERATIVE;
+            bool useExtrinsicGuess = true;
+            int iterationsCount = 100;
+            float reprojectionError = 2.0;
+            int minInliersCount = 2;
+            cv::Mat inliers(0,4,cv::DataType<int>::type);
+            int flags = cv::P3P;
 
 //            std::cout << "world Coord" << std::endl;
 //            std::cout << worldCoord << std::endl;
 //            std::cout << "image Coord" << std::endl;
 //            std::cout << imageCoord << std::endl;
 
+            cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, flags);
 //            cv::solvePnPRansac(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, minInliersCount, inliers, flags);
-            cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec);
-
 
 //            std::cout << "rvec" << std::endl;
 //            std::cout << rvec << std::endl;
@@ -224,14 +234,14 @@ int main(int argc, char *argv[])
 
             // project axis
             cv::Mat axis(4,1,cv::DataType<cv::Point3f>::type);
-            worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
-            worldCoord.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
-            worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
-            worldCoord.at<cv::Point3f>(3) = (cv::Point3f){0,0,1};
+            axis.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
+            axis.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
+            axis.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
+            axis.at<cv::Point3f>(3) = (cv::Point3f){0,0,1};
 
             std::vector<cv::Point2f> projectedPoints;
             cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
-            std::cout << "projected points: "  << projectedPoints << std::endl;
+//            std::cout << "projected points: "  << projectedPoints << std::endl;
 
             bool valid = false;
 
@@ -248,8 +258,9 @@ int main(int argc, char *argv[])
                 }
             }
 
-            if (valid)
+            if (1)
             {
+                std::cout << "valid" << std::endl;
                 cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
                 cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
                 cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
