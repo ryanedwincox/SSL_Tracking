@@ -6,6 +6,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "search.h"
 #include "holdpoint.h"
@@ -163,109 +164,137 @@ int main(int argc, char *argv[])
         // Define marker points in world coordinates (3D)
         int numMarkers = 4;
         cv::Mat worldCoord(numMarkers,1,cv::DataType<cv::Point3f>::type);
-        // quad markers
-//        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){0,0,0};
-//        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){1,0,0};
-//        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){0,1,0};
-//        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){1,1,0};
-        // skew markers
-        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
-        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){3.5,2,0};
-        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){0,4,0};
-        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){3.5,6,0};
 
-        // Will store  markers found by camera (2D) ordered from bottom to top
-        cv::Mat imageCoord(numMarkers,1,cv::DataType<cv::Point2f>::type);
+        int perm[] = {0,1,2,3};
 
-        // copy H vector into a list for ordering
-        std::list<HoldPoint> HList;
-        for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
+        do
         {
-            HList.push_back(*it);
-        }
+            // quad markers
+    //        worldCoord.at<cv::Point3f>(3) = (cv::Point3f){0,0,0};
+    //        worldCoord.at<cv::Point3f>(2) = (cv::Point3f){1,0,0};
+    //        worldCoord.at<cv::Point3f>(1) = (cv::Point3f){0,1,0};
+    //        worldCoord.at<cv::Point3f>(0) = (cv::Point3f){1,1,0};
+    //        // skew markers
+//            worldCoord.at<cv::Point3f>(perm[0]) = (cv::Point3f){0,0,0};
+//            worldCoord.at<cv::Point3f>(perm[1]) = (cv::Point3f){3.5,2,0};
+//            worldCoord.at<cv::Point3f>(perm[2]) = (cv::Point3f){0,4,0};
+//            worldCoord.at<cv::Point3f>(perm[3]) = (cv::Point3f){3.5,6,0};
+            // unique markers
+            worldCoord.at<cv::Point3f>(perm[0]) = (cv::Point3f){0,0,0};
+            worldCoord.at<cv::Point3f>(perm[1]) = (cv::Point3f){2,0,0};
+            worldCoord.at<cv::Point3f>(perm[2]) = (cv::Point3f){0,2,0};
+            worldCoord.at<cv::Point3f>(perm[3]) = (cv::Point3f){2,3,0};
 
-        // sort holdpoints
-        std::list<HoldPoint> sorted = mergesort(HList);
+            // Will store  markers found by camera (2D) ordered from bottom to top
+            cv::Mat imageCoord(numMarkers,1,cv::DataType<cv::Point2f>::type);
 
-        // print ordered matches
-//        std::cout << "Ordered Matches" << std::endl;
-        int j = numMarkers;
-        for (std::list<HoldPoint>::iterator it = sorted.begin(); it != sorted.end(); it++)
-        {
-            j--;
-//            std::cout << it->heldMatch << std::endl;
-            if (j >= 0)
+            // copy H vector into a list for ordering
+//            std::list<HoldPoint> HList;
+            int jj = 0;
+            for (std::vector<HoldPoint>::iterator it = H.begin(); it != H.end(); it++)
             {
-                imageCoord.at<cv::Point2f>(j) = it->heldMatch;
-                if (j == 0) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,0), -1);
-                if (j == 1) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,255,0), -1);
-                if (j == 2) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,0,0), -1);
-                if (j == 3) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,0,0), -1);
-//                j++;
-            }
-        }
-
-        // create output arrays
-//        cv::Mat rvec(3,1,cv::DataType<double>::type);
-//        cv::Mat tvec(3,1,cv::DataType<double>::type);
-
-        // if there are 3 valid markers try to estimate position
-        if (H.size() >= numMarkers)
-        {
-            bool useExtrinsicGuess = true;
-            int iterationsCount = 100;
-            float reprojectionError = 2.0;
-            int minInliersCount = 2;
-            cv::Mat inliers(0,4,cv::DataType<int>::type);
-            int flags = cv::P3P;
-
-//            std::cout << "world Coord" << std::endl;
-//            std::cout << worldCoord << std::endl;
-//            std::cout << "image Coord" << std::endl;
-//            std::cout << imageCoord << std::endl;
-
-            cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, flags);
-//            cv::solvePnPRansac(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, minInliersCount, inliers, flags);
-
-//            std::cout << "rvec" << std::endl;
-//            std::cout << rvec << std::endl;
-//            std::cout << "tvec" << std::endl;
-//            std::cout << tvec << std::endl;
-
-            // project axis
-            cv::Mat axis(4,1,cv::DataType<cv::Point3f>::type);
-            axis.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
-            axis.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
-            axis.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
-            axis.at<cv::Point3f>(3) = (cv::Point3f){0,0,1};
-
-            std::vector<cv::Point2f> projectedPoints;
-            cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
-//            std::cout << "projected points: "  << projectedPoints << std::endl;
-
-            bool valid = false;
-
-            // undefined solution if any projected point is less than zero?
-            for (std::vector<cv::Point2f>::iterator it = projectedPoints.begin(); it != projectedPoints.end(); it++)
-            {
-                if (it->x < 1 || it->x > w || it->y < 1 || it->y > h)
+                if (jj < numMarkers)
                 {
-                    valid = false;
-                }
-                else
-                {
-                    valid = true;
+//                    HList.push_back(*it);
+                    imageCoord.at<cv::Point2f>(jj) = it->heldMatch;
+                    jj++;
                 }
             }
 
-            if (1)
+            // sort holdpoints
+    //        std::list<HoldPoint> sorted = mergesort(HList);
+
+    //        // print ordered matches
+    ////        std::cout << "Ordered Matches" << std::endl;
+    //        int j = numMarkers;
+    //        for (std::list<HoldPoint>::iterator it = sorted.begin(); it != sorted.end(); it++)
+    //        {
+    //            j--;
+    ////            std::cout << it->heldMatch << std::endl;
+    //            if (j >= 0)
+    //            {
+    //                imageCoord.at<cv::Point2f>(j) = it->heldMatch;
+    //                if (j == 0) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,255,0), -1);
+    //                if (j == 1) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,255,0), -1);
+    //                if (j == 2) cv::circle(img, it->heldMatch, 3, cv::Scalar(0,0,0), -1);
+    //                if (j == 3) cv::circle(img, it->heldMatch, 3, cv::Scalar(255,0,0), -1);
+    ////                j++;
+    //            }
+    //        }
+
+            // create output arrays
+    //        cv::Mat rvec(3,1,cv::DataType<double>::type);
+    //        cv::Mat tvec(3,1,cv::DataType<double>::type);
+
+            // if there are 3 valid markers try to estimate position
+            if (H.size() >= numMarkers)
             {
-                std::cout << "valid" << std::endl;
-                cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
-                cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
-                cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
+                bool useExtrinsicGuess = false;
+                int iterationsCount = 100;
+                float reprojectionError = 2.0;
+                int minInliersCount = 2;
+                cv::Mat inliers(0,4,cv::DataType<int>::type);
+                int flags = cv::P3P;
+
+    //            std::cout << "world Coord" << std::endl;
+    //            std::cout << worldCoord << std::endl;
+    //            std::cout << "image Coord" << std::endl;
+    //            std::cout << imageCoord << std::endl;
+
+                cv::solvePnP(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, flags);
+    //            cv::solvePnPRansac(worldCoord, imageCoord, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, minInliersCount, inliers, flags);
+
+    //            std::cout << "rvec" << std::endl;
+    //            std::cout << rvec << std::endl;
+    //            std::cout << "tvec" << std::endl;
+    //            std::cout << tvec << std::endl;
+
+                // project axis
+                cv::Mat axis(4,1,cv::DataType<cv::Point3f>::type);
+                axis.at<cv::Point3f>(0) = (cv::Point3f){0,0,0};
+                axis.at<cv::Point3f>(1) = (cv::Point3f){1,0,0};
+                axis.at<cv::Point3f>(2) = (cv::Point3f){0,1,0};
+                axis.at<cv::Point3f>(3) = (cv::Point3f){0,0,1};
+
+                std::vector<cv::Point2f> projectedPoints;
+                cv::projectPoints(axis, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
+    //            std::cout << "projected points: "  << projectedPoints << std::endl;
+
+    //            std::cout << (projectedPoints[0].x - projectedPoints[3].x) << "," << (projectedPoints[0].y - projectedPoints[3].y) << std::endl;
+
+                bool valid = false;
+
+                cv::Point2f point = imageCoord.at<cv::Point2f>(0);
+                std::cout << point.x << std::endl;
+
+                // undefined solution if any projected point is outside the frame or negative in the z axis or the origin is not near a marker
+                for (std::vector<cv::Point2f>::iterator it = projectedPoints.begin(); it != projectedPoints.end(); it++)
+                {
+                    if (it->x < 1 || it->x > w || it->y < 1 || it->y > h)
+//                            || (projectedPoints[0].x - projectedPoints[3].x) < 0
+//                            || (projectedPoints[0].y - projectedPoints[3].y) < 0)
+//                            || abs(projectedPoints[0].x - imageCoord.at<cv::Point2f>(0).x) < 10
+//                            || abs(projectedPoints[0].y - imageCoord.at<cv::Point2f>(0).y) < 10)
+                    {
+                        valid = false;
+                        std::cout << "invalid" << std::endl;
+                    }
+                    else
+                    {
+                        valid = true;
+                        std::cout << "valid" << std::endl;
+                    }
+                }
+
+                if (valid)
+                {
+    //                std::cout << "valid" << std::endl;
+                    cv::line(img, projectedPoints[0], projectedPoints[1], cv::Scalar(0,0,255), 2);
+                    cv::line(img, projectedPoints[0], projectedPoints[2], cv::Scalar(0,255,0), 2);
+                    cv::line(img, projectedPoints[0], projectedPoints[3], cv::Scalar(255,0,0), 2);
+                }
             }
-        }
+        } while ( std::next_permutation(perm,perm+numMarkers) );
 
         //        // Display images
 //        cv::imshow("New Image", newImage);
